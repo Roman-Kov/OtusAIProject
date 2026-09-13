@@ -5,7 +5,7 @@ from rag_kb.types import Chunk
 
 def make_chunks(n=3, source="a.md"):
     return [
-        Chunk(id=f"id{i}", text=f"текст номер {i}",
+        Chunk(id=f"{source}-{i}", text=f"текст номер {i}",
               metadata={"source": source, "chunk_index": i, "total_chunks": n, "doc_type": "text"})
         for i in range(n)
     ]
@@ -24,7 +24,7 @@ def test_add_query_count(tmp_path):
     assert store.count() == 3
     found = store.query([2.0] * 4, top_k=2)
     assert len(found) == 2
-    assert found[0].id == "id2"  # ближайший вектор
+    assert found[0].id == "a.md-2"  # ближайший вектор
 
 
 def test_add_chunks_upserts_by_id(tmp_path):

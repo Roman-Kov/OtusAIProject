@@ -1,11 +1,13 @@
 # tests/unit/test_nodes.py
-import json
 
 from rag_kb.graph.nodes import (
-    make_generator, make_grader, make_rewriter, retrieve_node,
+    make_generator,
+    make_grader,
+    make_rewriter,
+    retrieve_node,
 )
 from rag_kb.graph.state import GraphState
-from tests.conftest import FakeLLM, FakeEmbedder  # noqa: F401  (FakeEmbedder для консистентности)
+from tests.conftest import FakeEmbedder, FakeLLM  # noqa: F401  (FakeEmbedder для консистентности)
 
 
 class StubRetriever:
@@ -67,6 +69,27 @@ def test_grader_tolerates_broken_json():
     node = make_grader(llm)
     out = node(base_state(chunks=[chunk(0, "a"), chunk(1, "b")]))
     assert [c.id for c in out["relevant"]] == ["1"]  # fallback-парсер нашёл yes
+
+
+def test_grader_tolerates_bare_json_string():
+    llm = FakeLLM(['"yes"'])
+    node = make_grader(llm)
+    out = node(base_state(chunks=[chunk(0, "a")]))
+    assert [c.id for c in out["relevant"]] == []
+
+
+def test_grader_accepts_boolean_json():
+    llm = FakeLLM(['{"relevant": true}', '{"relevant": false}'])
+    node = make_grader(llm)
+    out = node(base_state(chunks=[chunk(0, "a"), chunk(1, "b")]))
+    assert [c.id for c in out["relevant"]] == ["0"]
+
+
+def test_grader_accepts_russian_da():
+    llm = FakeLLM(['{"relevant": "да"}'])
+    node = make_grader(llm)
+    out = node(base_state(chunks=[chunk(0, "a")]))
+    assert [c.id for c in out["relevant"]] == ["0"]
 
 
 def test_generator_answer_and_sources():

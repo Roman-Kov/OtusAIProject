@@ -52,9 +52,14 @@ def retrieve_node(retriever):
 
 def _parse_relevant(raw: str) -> bool:
     try:
-        return json.loads(raw)["relevant"].strip().lower().startswith("y")
-    except (json.JSONDecodeError, KeyError, AttributeError):
+        value = json.loads(raw)["relevant"]
+    except json.JSONDecodeError:
         return bool(re.search(r"\byes\b", raw, re.IGNORECASE))
+    except (KeyError, AttributeError, TypeError):
+        return False
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower().startswith(("y", "д"))
 
 
 def make_grader(llm: LLM):

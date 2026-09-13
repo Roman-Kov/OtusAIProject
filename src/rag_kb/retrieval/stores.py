@@ -61,7 +61,11 @@ class VectorStore:
         self._collection.delete(where={"source": source})
 
     def set_last_indexed_at(self, iso: str) -> None:
-        self._collection.modify(metadata={"last_indexed_at": iso})
+        merged = {**(self._collection.metadata or {}), "last_indexed_at": iso}
+        # chromadb запрещает передавать hnsw:* в modify, даже без изменений;
+        # настройка пространства сохраняется в индексе после создания коллекции
+        merged = {k: v for k, v in merged.items() if not k.startswith("hnsw:")}
+        self._collection.modify(metadata=merged)
 
     def get_last_indexed_at(self) -> str | None:
         return (self._collection.metadata or {}).get("last_indexed_at")

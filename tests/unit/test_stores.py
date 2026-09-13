@@ -34,7 +34,19 @@ def test_add_chunks_upserts_by_id(tmp_path):
     chunks[0].text = "обновлённый"
     store.add_chunks(chunks, [[0.0] * 4, [1.0] * 4])
     assert store.count() == 2
-    assert store.all_chunks()[0].text == "обновлённый"
+    texts = {c.id: c.text for c in store.all_chunks()}
+    assert texts["a.md-0"] == "обновлённый"
+
+
+def test_add_chunks_dedups_ids_within_batch(tmp_path):
+    store = make_store(tmp_path)
+    first = Chunk(id="dup", text="первая версия", metadata={"source": "a.md", "chunk_index": 0,
+                                                           "total_chunks": 2, "doc_type": "text"})
+    second = Chunk(id="dup", text="вторая версия", metadata={"source": "a.md", "chunk_index": 1,
+                                                            "total_chunks": 2, "doc_type": "text"})
+    store.add_chunks([first, second], [[0.0] * 4, [0.1] * 4])
+    assert store.count() == 1
+    assert store.all_chunks()[0].text == "вторая версия"  # last occurrence wins
 
 
 def test_delete_by_source(tmp_path):
@@ -51,3 +63,8 @@ def test_last_indexed_at(tmp_path):
     assert store.get_last_indexed_at() is None
     store.set_last_indexed_at("2026-09-13T10:00:00")
     assert store.get_last_indexed_at() == "2026-09-13T10:00:00"
+
+
+def test_query_empty_collection_returns_empty(tmp_path):
+    store = make_store(tmp_path)
+    assert store.query([1.0] * 4, top_k=3) == []

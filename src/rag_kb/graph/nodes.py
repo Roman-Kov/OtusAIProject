@@ -34,7 +34,7 @@ NOT_FOUND_ANSWER = (
 
 def make_rewriter(llm: LLM):
     def rewrite(state: GraphState) -> dict:
-        if state["attempt"] == 0:
+        if state.get("attempt", 0) == 0:
             return {"query": state["question"].strip()}
         query = llm.invoke(REWRITE_PROMPT.format(question=state["question"], query=state["query"]))
         return {"query": query.strip()}
@@ -45,7 +45,7 @@ def make_rewriter(llm: LLM):
 def retrieve_node(retriever):
     def retrieve(state: GraphState) -> dict:
         chunks = retriever.search(state["query"])
-        return {"chunks": chunks, "attempt": state["attempt"] + 1}
+        return {"chunks": chunks, "attempt": state.get("attempt", 0) + 1}
 
     return retrieve
 

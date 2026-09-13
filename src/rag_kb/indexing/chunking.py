@@ -23,7 +23,8 @@ def _splitter(doc_type: str, chunk_size: int, chunk_overlap: int) -> RecursiveCh
 
 
 def split_document(doc: LoadedDoc, chunk_size: int = 1200, chunk_overlap: int = 200) -> list[Chunk]:
-    """Разбить документ на чанки: для кода — по границам функций/классов, для текста — по абзацам."""
+    """Разбить документ на чанки: для кода — по границам функций/классов,
+    для текста — по абзацам."""
     parts = _splitter(doc.doc_type, chunk_size, chunk_overlap).split_text(doc.text)
     source = str(doc.path)
     chunks = []

@@ -3,6 +3,7 @@ import json
 
 import pytest
 from fastmcp import Client
+from fastmcp.exceptions import ToolError
 
 from rag_kb.app import create_mcp_server
 from rag_kb.config import Settings
@@ -60,6 +61,13 @@ async def test_all_four_tools_end_to_end(mcp, tmp_path):
         text = answer.content[0].text
         assert "40-63" in text
         assert "a.md" in text  # источники приложены
+
+
+async def test_find_relevant_docs_rejects_bad_top_k(mcp):
+    async with Client(mcp) as client:
+        for bad in (0, 51):
+            with pytest.raises(ToolError):
+                await client.call_tool("find_relevant_docs", {"query": "x", "top_k": bad})
 
 
 async def test_ask_question_nothing_found(mcp, tmp_path):

@@ -1,7 +1,7 @@
 # tests/unit/test_loaders.py
 import pytest
 
-from rag_kb.indexing.loaders import SUPPORTED_EXTENSIONS, load_file, scan_folder
+from rag_kb.indexing.loaders import load_file, scan_folder
 
 
 def test_scan_folder_filters_by_extension(tmp_path):

@@ -20,9 +20,10 @@ def main() -> None:
     retriever.rebuild_bm25()  # восстановить BM25 из персистентного Chroma после рестарта
     indexer = Indexer(vector_store=vector_store, embedder=embedder, bm25=bm25, settings=settings)
     llm = OllamaLLM(settings.ollama_base_url, settings.llm_model)
+    graph = build_graph(retriever, llm, settings)
     mcp = create_mcp_server(
         indexer=indexer, retriever=retriever,
-        graph_factory=lambda _q: build_graph(retriever, llm, settings),
+        graph_factory=lambda _q: graph,
         settings=settings,
     )
     mcp.run(transport="streamable-http", host=settings.host, port=settings.port)

@@ -8,8 +8,10 @@ from tests.conftest import FakeLLM
 class StubRetriever:
     def __init__(self):
         self.results = []
+        self.queries = []
 
     def search(self, query, top_k=None):
+        self.queries.append(query)
         return self.results
 
 
@@ -41,6 +43,7 @@ def test_retry_loop_broadens_query():
     out = graph.invoke({"question": "почему данные устаревают?"})
     assert out["answer"] == "Ответ."
     assert out["attempt"] == 2  # был повторный поиск
+    assert r.queries == ["почему данные устаревают?", "кэш redis TTL хранение"]
 
 
 def test_max_two_retries_then_generate_with_what_we_have():

@@ -53,3 +53,13 @@ def test_reindex_replaces_old_chunks(indexer, tmp_path):
 def test_index_folder_missing_path_raises(indexer):
     with pytest.raises(FileNotFoundError):
         indexer.index_folder("Z:/definitely/missing")
+
+
+def test_index_folder_isolates_broken_file(indexer, tmp_path):
+    (tmp_path / "good.md").write_text("нормальный файл", encoding="utf-8")
+    (tmp_path / "bad.md").write_bytes(b"\xff\xfe\x00broken")
+    report = indexer.index_folder(tmp_path)
+    assert report.files == 1
+    assert len(report.errors) == 1
+    assert "bad.md" in report.errors[0]
+    assert indexer.status().files == 1  # хороший файл проиндексирован

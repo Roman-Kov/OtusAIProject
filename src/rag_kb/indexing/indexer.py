@@ -21,7 +21,7 @@ class Indexer:
         self._settings = settings
 
     def index_folder(self, folder: str | Path, pattern: str = "**/*") -> IndexReport:
-        folder = Path(folder)
+        folder = Path(folder).resolve()
         if not folder.is_dir():
             raise FileNotFoundError(f"Folder not found: {folder}")
         started = time.perf_counter()
@@ -31,7 +31,8 @@ class Indexer:
         for path in files:
             try:
                 doc = load_file(path)
-                chunks = split_document(doc, self._settings.chunk_size, self._settings.chunk_overlap)
+                chunks = split_document(
+                    doc, self._settings.chunk_size, self._settings.chunk_overlap)
                 embeddings = self._embedder.embed_documents([c.text for c in chunks])
                 self.vector_store.delete_by_source(str(path))
                 self.vector_store.add_chunks(chunks, embeddings)

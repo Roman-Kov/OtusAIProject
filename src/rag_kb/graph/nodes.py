@@ -14,9 +14,8 @@ REWRITE_PROMPT = (
 )
 
 GRADE_PROMPT = (
-    "Определи, релевантен ли фрагмент документа вопросу для ответа на него.\n"
-    'Ответь строго JSON: {{"relevant": "yes"}} или {{"relevant": "no"}}.\n\n'
-    "Вопрос: {question}\n\nФрагмент:\n{chunk}"
+    "Фрагмент:\n{chunk}\n\nВопрос: {question}\n\n"
+    "Содержит ли фрагмент информацию для ответа на вопрос? Ответь одним словом: yes или no."
 )
 
 GENERATE_PROMPT = (
@@ -67,8 +66,7 @@ def make_grader(llm: LLM):
         relevant: list[Chunk] = []
         for chunk in state["chunks"]:
             raw = llm.invoke(
-                GRADE_PROMPT.format(question=state["question"], chunk=chunk.text[:1500]),
-                json_mode=True,
+                GRADE_PROMPT.format(question=state["question"], chunk=chunk.text[:1500])
             )
             if _parse_relevant(raw):
                 relevant.append(chunk)

@@ -1,0 +1,43 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+
+  ollama-init:
+    image: ollama/ollama:latest
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "ollama pull $${LLM_MODEL:-qwen2.5:3b} &&
+       ollama pull $${EMBEDDING_MODEL:-nomic-embed-text}"
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  rag-kb:
+    build: .
+    environment:
+      RAGKB_OLLAMA_BASE_URL: http://ollama:11434
+      RAGKB_LLM_MODEL: ${LLM_MODEL:-qwen2.5:3b}
+      RAGKB_EMBEDDING_PROVIDER: ollama
+      RAGKB_OLLAMA_EMBEDDING_MODEL: ${EMBEDDING_MODEL:-nomic-embed-text}
+    volumes:
+      - chroma_data:/data/chroma
+    ports:
+      - "8000:8000"
+    depends_on:
+      ollama-init:
+        condition: service_completed_successfully
+    restart: on-failure
+
+volumes:
+  ollama_data:
+  chroma_data:

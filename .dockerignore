@@ -1,0 +1,16 @@
+.venv
+data
+tests
+.git
+.github
+__pycache__
+*.pyc
+.env
+.pytest_cache
+.ruff_cache
+docs
+PLAN.md
+LEARNING-PLAN.md
+GLOSSARY.md
+REPORT.md
+todo.png

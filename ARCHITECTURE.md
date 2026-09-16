@@ -8,42 +8,40 @@ rag-kb — MCP-сервер «база знаний», построенный н
 
 ## Компоненты
 
-```text
-+--------------------------------------------------------------------------+
-| MCP-клиент (VSCode Copilot, любой MCP-агент)                             |
-+------------------------------------^-------------------------------------+
-                                     |  MCP, streamable-http
-                                     |  http://localhost:8000/mcp
-+------------------------------------v-------------------------------------+
-| FastMCP — src/rag_kb/app.py                                              |
-| инструменты: index_folder, ask_question, find_relevant_docs, index_status|
-+------+---------------------------------------------------+----------------+
-       | индексация (index_folder, index_status)           | вопрос (ask_question,
-       v                                                  | find_relevant_docs)
-+-------------------------------+                          v
-| Indexer — src/rag_kb/         |             +-------------------------------+
-| indexing/indexer.py           |             | LangGraph-граф — src/rag_kb/  |
-|   loaders.py   скан + чтение  |             | graph/builder.py              |
-|   chunking.py  чанки ~1200/200|             |   rewrite -> retrieve ->      |
-|   embedder.py  эмбеддинги     |             |   grade -> generate           |
-+---------------+---------------+             +---------------+---------------+
-                | upsert, delete_by_source    | retrieve (top_k)
-                | all_chunks()                v
-                v             +-------------------------------+
-+-------------------------------+             | HybridRetriever —             |
-| VectorStore (ChromaDB)        |  rebuild    | src/rag_kb/retrieval/hybrid.py|
-| src/rag_kb/retrieval/stores.py|------------>| BM25-список + векторный список|
-| персистентный, метрика L2     |  sparse     |   -> rrf_fuse (RRF, k=60)     |
-+-------------------------------+  поиск      +-------------------------------+
-        ^                          v
-        |      all_chunks()  +-------------------------------+
-        +--------------------| BM25Store (in-memory)         |
-                             | src/rag_kb/retrieval/         |
-                             |      bm25_store.py (BM25Okapi)|
-                             +-------------------------------+
+```mermaid
+flowchart LR
+    subgraph CLIENT["Клиент"]
+        client["MCP-клиент<br/>VSCode Copilot, любой MCP-агент"]
+    end
 
-LLM — src/rag_kb/llm.py: OllamaLLM (ChatOllama, qwen2.5:3b); вызывается узлами
-      rewrite / grade / generate
+    subgraph SERVER["MCP-сервер"]
+        fastmcp["FastMCP — src/rag_kb/app.py<br/>инструменты: index_folder, ask_question,<br/>find_relevant_docs, index_status"]
+        langgraph["LangGraph-граф — src/rag_kb/graph/builder.py<br/>rewrite → retrieve → grade → generate"]
+    end
+
+    subgraph INDEXING["Индексация"]
+        indexer["Indexer — src/rag_kb/indexing/indexer.py<br/>loaders.py — скан + чтение файлов<br/>chunking.py — чанки ~1200 / перекрытие 200<br/>embedder.py — эмбеддинги"]
+    end
+
+    subgraph RETRIEVAL["Поиск"]
+        hybrid["HybridRetriever — src/rag_kb/retrieval/hybrid.py<br/>BM25-список + векторный список<br/>→ rrf_fuse (RRF, k=60)"]
+        bm25["BM25Store (in-memory, BM25Okapi)<br/>src/rag_kb/retrieval/bm25_store.py"]
+    end
+
+    subgraph STORES["Хранилища и LLM"]
+        chroma["VectorStore (ChromaDB) — src/rag_kb/retrieval/stores.py<br/>персистентный, метрика L2"]
+        llm["OllamaLLM — src/rag_kb/llm.py<br/>ChatOllama, qwen2.5:3b<br/>вызывается узлами rewrite / grade / generate"]
+    end
+
+    client -->|"MCP, streamable-http<br/>http://localhost:8000/mcp"| fastmcp
+    fastmcp -->|"index_folder, index_status"| indexer
+    fastmcp -->|"ask_question, find_relevant_docs"| langgraph
+    indexer -->|"upsert, delete_by_source"| chroma
+    chroma -->|"rebuild — all_chunks()"| bm25
+    langgraph -->|"retrieve (top_k)"| hybrid
+    hybrid -->|"sparse-поиск"| bm25
+    hybrid -->|"векторный поиск"| chroma
+    langgraph -->|"rewrite / grade / generate"| llm
 ```
 
 Модули по фактическому коду:
@@ -103,11 +101,16 @@ score(d) = Σ_i  1 / (k + rank_i(d)),   k = 60 (RAGKB_RRF_K)
 
 ## LangGraph-граф
 
-```text
-START ──> rewrite ──> retrieve ──> grade ──(relevant >= min_relevant_chunks)──> generate ──> END
-            ^                        │
-            └──(relevant < 1 и attempt <= max_retries)──┘
-                     иначе (попытки исчерпаны) ──> generate ──> END
+```mermaid
+flowchart TD
+    s(["START"]) --> rewrite["rewrite<br/>переформулировка и расширение запроса"]
+    rewrite --> retrieve["retrieve<br/>гибридный поиск (top_k), attempt += 1"]
+    retrieve --> grade["grade<br/>LLM оценивает релевантность каждого чанка"]
+    grade --> route{"релевантных ≥ min_relevant_chunks?"}
+    route -->|"да"| generate["generate<br/>ответ строго по релевантным фрагментам"]
+    route -->|"нет и attempt ≤ max_retries"| rewrite
+    route -->|"иначе — попытки исчерпаны"| generate
+    generate --> e(["END"])
 ```
 
 `GraphState` (`graph/state.py`):

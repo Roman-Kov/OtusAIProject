@@ -13,7 +13,7 @@ MCP-сервер «база знаний»: индексирует локаль�
 Нужен только Docker:
 
 ```bash
-git clone <url-репозитория>
+git clone https://github.com/Roman-Kov/OtusAIProject.git
 cd OtusAIProject
 docker compose up
 ```

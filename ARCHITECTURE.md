@@ -1,0 +1,188 @@
+# Архитектура rag-kb
+
+## Обзор
+
+rag-kb — MCP-сервер «база знаний», построенный на FastMCP и LangGraph. Он индексирует локальную папку документов в персистентный ChromaDB (векторный поиск) и in-memory BM25-индекс (точный лексический поиск), а ответы на вопросы генерирует Corrective RAG-графом: запрос переформулируется, гибридный поиск выдаёт кандидатов, LLM оценивает их релевантность, и только релевантные фрагменты попадают в контекст генерации. При неуспехе поиск повторяется с расширенной формулировкой (до двух раз). Ответ всегда сопровождается списком источников.
+
+Принцип проекта — «локально и без внешних API»: LLM (Ollama, `qwen2.5:3b`), эмбеддинги (встроенная функция ChromaDB или `nomic-embed-text` через Ollama), векторное хранилище (ChromaDB) и sparse-поиск (rank-bm25) работают на машине пользователя; ни один запрос не уходит к платным облачным сервисам, ключи API не нужны. Единственный внешний процесс — локальный сервер Ollama (в Docker-составе поднимается рядом).
+
+## Компоненты
+
+```text
++--------------------------------------------------------------------------+
+| MCP-клиент (VSCode Copilot, любой MCP-агент)                             |
++------------------------------------^-------------------------------------+
+                                     |  MCP, streamable-http
+                                     |  http://localhost:8000/mcp
++------------------------------------v-------------------------------------+
+| FastMCP — src/rag_kb/app.py                                              |
+| инструменты: index_folder, ask_question, find_relevant_docs, index_status|
++------+---------------------------------------------------+----------------+
+       | индексация (index_folder, index_status)           | вопрос (ask_question,
+       v                                                  | find_relevant_docs)
++-------------------------------+                          v
+| Indexer — src/rag_kb/         |             +-------------------------------+
+| indexing/indexer.py           |             | LangGraph-граф — src/rag_kb/  |
+|   loaders.py   скан + чтение  |             | graph/builder.py              |
+|   chunking.py  чанки ~1200/200|             |   rewrite -> retrieve ->      |
+|   embedder.py  эмбеддинги     |             |   grade -> generate           |
++---------------+---------------+             +---------------+---------------+
+                | upsert, delete_by_source    | retrieve (top_k)
+                | all_chunks()                v
+                v             +-------------------------------+
++-------------------------------+             | HybridRetriever —             |
+| VectorStore (ChromaDB)        |  rebuild    | src/rag_kb/retrieval/hybrid.py|
+| src/rag_kb/retrieval/stores.py|------------>| BM25-список + векторный список|
+| персистентный, метрика L2     |  sparse     |   -> rrf_fuse (RRF, k=60)     |
++-------------------------------+  поиск      +-------------------------------+
+        ^                          v
+        |      all_chunks()  +-------------------------------+
+        +--------------------| BM25Store (in-memory)         |
+                             | src/rag_kb/retrieval/         |
+                             |      bm25_store.py (BM25Okapi)|
+                             +-------------------------------+
+
+LLM — src/rag_kb/llm.py: OllamaLLM (ChatOllama, qwen2.5:3b); вызывается узлами
+      rewrite / grade / generate
+```
+
+Модули по фактическому коду:
+
+- `src/rag_kb/app.py` — `create_mcp_server(...)`: FastMCP и регистрация четырёх инструментов; каждый возвращает JSON.
+- `src/rag_kb/server.py` — входная точка (`python -m rag_kb.server`): сборка реальных зависимостей (Settings, VectorStore, embedder, BM25Store, HybridRetriever с `rebuild_bm25()` после рестарта, Indexer, OllamaLLM, `build_graph`) и `mcp.run(transport="streamable-http")`.
+- `src/rag_kb/config.py` — `Settings` (pydantic-settings, префикс `RAGKB_`, `get_settings` под `lru_cache`).
+- `src/rag_kb/types.py` — датаклассы `LoadedDoc`, `Chunk`, `IndexReport`, `IndexStats`.
+- `src/rag_kb/llm.py` — протокол `LLM` (`invoke(prompt, json_mode)`) и `OllamaLLM`: два экземпляра `ChatOllama` — plain для текста, `format="json"` для грейдинга.
+- `src/rag_kb/indexing/loaders.py` — `scan_folder` (glob-паттерн + фильтр по поддерживаемым расширениям) и `load_file` (TextLoader из LangChain, UTF-8).
+- `src/rag_kb/indexing/chunking.py` — `split_document`: `RecursiveCharacterTextSplitter`; для python/js/ts/markdown — сплиттер «из языка» (границы функций/классов/заголовков), для остальных — обычный; id чанка — `sha1(source:chunk_index)`.
+- `src/rag_kb/indexing/embedder.py` — протокол `Embedder`; реализации `ChromaDefaultEmbedder` (ONNX all-MiniLM-L6-v2, входит в chromadb) и `OllamaEmbedder` (nomic-embed-text); выбор через `create_embedder(settings)`.
+- `src/rag_kb/indexing/indexer.py` — `Indexer.index_folder` (оркестрация, изоляция ошибок, отчёт) и `Indexer.status`.
+- `src/rag_kb/retrieval/stores.py` — `VectorStore`: `chromadb.PersistentClient`, коллекция `documents` с метрикой `l2`; `upsert` с дедупликацией id внутри батча, `delete_by_source`, `all_chunks`, `last_indexed_at` в метаданных коллекции.
+- `src/rag_kb/retrieval/bm25_store.py` — `BM25Store` на `BM25Okapi`; токенизация `re.findall(r"\w+", text.lower())`; in-memory, пересобирается из ChromaDB.
+- `src/rag_kb/retrieval/hybrid.py` — `rrf_fuse(...)` и `HybridRetriever.search`: BM25-топ + векторный топ, слияние RRF.
+- `src/rag_kb/graph/state.py` — `GraphState` (TypedDict).
+- `src/rag_kb/graph/nodes.py` — промпты (`REWRITE_PROMPT`, `GRADE_PROMPT`, `GENERATE_PROMPT`, `NOT_FOUND_ANSWER`), фабрики узлов и парсер ответа грейдера `_parse_relevant`.
+- `src/rag_kb/graph/builder.py` — сборка `StateGraph` и условное ребро после `grade`.
+
+## Потоки данных
+
+Индексация (`index_folder`):
+
+1. `scan_folder` — glob по паттерну, фильтр расширений `.md .txt .py .js .ts .json .yaml`, сортировка.
+2. `load_file` — чтение файла как UTF-8 текста.
+3. `split_document` — чанки ~1200 символов с перекрытием 200; сплиттер выбирается по типу документа (для кода и markdown — с учётом синтаксиса языка); метаданные: `source`, `chunk_index`, `total_chunks`, `doc_type`.
+4. `embedder.embed_documents` — векторы для всех чанков файла.
+5. Атомарная замена по source: `vector_store.delete_by_source(path)`, затем `add_chunks` (upsert) — в индексе не остаётся старых чанков переиндексированного файла.
+6. Битый файл (не читается, неподдерживаемая кодировка и т. п.) не роняет индексацию: исключение перехватывается, путь и причина попадают в `errors` отчёта.
+7. После всех файлов — `bm25.build(vector_store.all_chunks())`: BM25 перестраивается целиком из ChromaDB.
+8. `set_last_indexed_at(now UTC, ISO)` — в метаданные коллекции; `IndexReport` возвращает files/chunks/seconds/errors.
+
+Вопрос (`ask_question`):
+
+1. `rewrite` — первая попытка: `query = question`; при повторных — LLM переформулирует и расширяет запрос (синонимы, связанные термины).
+2. `retrieve` — `HybridRetriever.search(query)` (top_k=6); `attempt += 1` (инкремент только здесь).
+3. `grade` — LLM оценивает каждый чанк (первые 1500 символов) на релевантность вопросу; собирается `relevant`.
+4. Маршрутизатор: релевантных достаточно — `generate`; нет и попытки не исчерпаны — назад в `rewrite`; иначе `generate` с пустым `relevant`.
+5. `generate` — ответ строго по релевантным фрагментам («не выдумывай; если ответа нет — так и скажи»); `sources` — уникальные `source` релевантных чанков. При пустом `relevant` — фиксированный `NOT_FOUND_ANSWER` и пустые источники.
+
+`find_relevant_docs` идёт напрямую в `HybridRetriever.search` без LLM-генерации.
+
+## Гибридный поиск и RRF
+
+Слияние двух ранжированных списков (BM25 и векторного) — Reciprocal Rank Fusion:
+
+```text
+score(d) = Σ_i  1 / (k + rank_i(d)),   k = 60 (RAGKB_RRF_K)
+```
+
+где `rank_i(d)` — позиция чанка `d` в списке `i` (нумерация с 1). Чанк, попавший только в один список, получает вклад только из него; итоговый порядок — по убыванию суммы, сверху обрезается до `top_k`.
+
+Зачем два списка: BM25 силён на точных терминах — имена собственные («Магнус Чёрный Молот»), числа и диапазоны («40-63», «12 408», «14 октября 903»), идентификаторы; векторный поиск — на смысле и парафразе, когда формулировка вопроса не совпадает со словами документа. RRF объединяет их без необходимости приводить несравнимые шкалы счётчиков BM25 и расстояний L2 к общему знаменателю.
+
+Почему свой `rrf_fuse`, а не `EnsembleRetriever` из LangChain: функция в 14 строк на наших `Chunk`-объектах — явная, детерминированная и напрямую тестируемая (`tests/unit/test_rrf.py`), параметр `k` под нашим контролем (конфигурируется через `RAGKB_RRF_K`), и она не тянет за собой LCEL-композицию ретриверов с их собственной логикой весов и дедупликации.
+
+## LangGraph-граф
+
+```text
+START ──> rewrite ──> retrieve ──> grade ──(relevant >= min_relevant_chunks)──> generate ──> END
+            ^                        │
+            └──(relevant < 1 и attempt <= max_retries)──┘
+                     иначе (попытки исчерпаны) ──> generate ──> END
+```
+
+`GraphState` (`graph/state.py`):
+
+| Поле | Смысл |
+| --- | --- |
+| `question` | исходный вопрос пользователя |
+| `query` | текущий (пере)сформулированный поисковый запрос |
+| `attempt` | номер попытки поиска (0 — до первого retrieve) |
+| `chunks` | чанки после retrieve |
+| `relevant` | чанки, оценённые LLM как релевантные |
+| `answer` | итоговый ответ |
+| `sources` | уникальные source релевантных чанков |
+
+Условный маршрутизатор после `grade` (`builder.py`, `_route_after_grade`):
+
+- `len(relevant) >= min_relevant_chunks` (по умолчанию 1) — в `generate`;
+- иначе если `attempt <= max_retries` (по умолчанию 2) — в `rewrite` (новая попытка с расширенным запросом);
+- иначе — в `generate` (пустой `relevant` даёт `NOT_FOUND_ANSWER`).
+
+Гарантия завершимости: `attempt` пишется только в узле `retrieve` и только увеличивается, а порог `max_retries` фиксирован, поэтому цикл `rewrite → retrieve → grade` ограничен `1 + max_retries` проходами поиска (не более трёх при дефолтах), после чего граф гарантированно уходит в `generate` и `END`.
+
+## Ключевые решения и компромиссы
+
+- **ChromaDB — единственный источник правды.** Персистентная коллекция переживает рестарты; BM25 живёт в памяти и перестраивается из ChromaDB целиком — после индексации (`indexer.py`, шаг 7 схемы выше) и при старте сервера (`server.py` → `retriever.rebuild_bm25()`). Цена: на больших индексах полный rebuild дороже инкрементального обновления; выгода: in-memory копия не может разойтись с хранилищем.
+- **Эмбеддинги считаются снаружи и передаются в коллекцию.** `VectorStore.add_chunks(chunks, embeddings)` принимает готовые векторы, а коллекция создаётся без собственной embedding-функции. Поэтому провайдер эмбеддингов — `chromadb` (ONNX MiniLM, работает без Ollama) или `ollama` (`nomic-embed-text`) — переключается одной переменной `RAGKB_EMBEDDING_PROVIDER`, и `VectorStore` вообще не знает о модели.
+- **Грейдер под маленькую модель.** Порядок частей промпта критичен для 3B-модели: фрагмент текста — в начале, вопрос — в конце, ближе к точке ответа; так `qwen2.5:3b` надёжно сопоставляет их (при обратном порядке модель ошибочно отклоняла заведомо релевантные фрагменты — см. REPORT.md, п. 13). Промпт выбирали из 7 опробованных вариантов; финальная формулировка прошла проверку 20/20. Парсер `_parse_relevant` терпим к формату: JSON `{"relevant": ...}` (bool либо строка, начинающаяся с `y`/`д`), а вне JSON — регистронезависимое отдельное слово `yes`.
+- **Метрика L2 в ChromaDB.** Оба эмбеддера выдают нормализованные векторы, а при `|x| = |y| = 1` упорядочение по евклидову расстоянию совпадает с упорядочением по косинусной близости — то есть на деле ранжирование косинусное, без специальной настройки пространства.
+- **Изоляция ошибок индексации.** Каждый файл обрабатывается в своём `try/except`: один битый файл не рушит индексацию, а попадает в `errors` отчёта (и уменьшает счётчик `files`).
+- **Известные ограничения.** Файлы, удалённые с диска, не вычищаются из индекса при переиндексации: `delete_by_source` вызывается только для найденных на диске файлов, «мёртвые» source остаются в коллекции (лечится очисткой каталога `RAGKB_CHROMA_DIR` и переиндексацией). CPU-инференс медленный: эмбеддинги и генерация на CPU занимают минуты.
+
+## Конфигурация
+
+`Settings` (`src/rag_kb/config.py`), префикс переменных окружения `RAGKB_`, лишние переменные игнорируются:
+
+| Поле | Переменная | По умолчанию | Описание |
+| --- | --- | --- | --- |
+| `host` | `RAGKB_HOST` | `0.0.0.0` | Адрес MCP-сервера |
+| `port` | `RAGKB_PORT` | `8000` | Порт MCP-сервера (endpoint `/mcp`) |
+| `chroma_dir` | `RAGKB_CHROMA_DIR` | `data/chroma` | Каталог персистентного ChromaDB |
+| `collection_name` | `RAGKB_COLLECTION_NAME` | `documents` | Имя коллекции ChromaDB |
+| `ollama_base_url` | `RAGKB_OLLAMA_BASE_URL` | `http://localhost:11434` | Адрес Ollama |
+| `llm_model` | `RAGKB_LLM_MODEL` | `qwen2.5:3b` | Модель LLM |
+| `embedding_provider` | `RAGKB_EMBEDDING_PROVIDER` | `chromadb` | Провайдер эмбеддингов: `chromadb` \| `ollama` |
+| `ollama_embedding_model` | `RAGKB_OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | Модель эмбеддингов Ollama |
+| `chunk_size` | `RAGKB_CHUNK_SIZE` | `1200` | Размер чанка, символов |
+| `chunk_overlap` | `RAGKB_CHUNK_OVERLAP` | `200` | Перекрытие чанков, символов |
+| `top_k` | `RAGKB_TOP_K` | `6` | Размер выдачи гибридного поиска |
+| `rrf_k` | `RAGKB_RRF_K` | `60` | Константа k в RRF |
+| `min_relevant_chunks` | `RAGKB_MIN_RELEVANT_CHUNKS` | `1` | Минимум релевантных чанков для генерации |
+| `max_retries` | `RAGKB_MAX_RETRIES` | `2` | Максимум повторов поиска с расширенным запросом |
+
+В `docker-compose.yml` для сервиса `rag-kb` заданы `RAGKB_OLLAMA_BASE_URL=http://ollama:11434`, `RAGKB_EMBEDDING_PROVIDER=ollama` и модели через переменные `LLM_MODEL`/`EMBEDDING_MODEL`; в `Dockerfile` — `RAGKB_CHROMA_DIR=/data/chroma` (том `chroma_data`).
+
+## ИИ-инструменты разработки
+
+Проект разрабатывался в агентном цикле с использованием следующих инструментов:
+
+- **opencode** — агентная CLI-среда, в которой велась вся разработка: чтение кода, правки, запуск тестов и git-коммиты выполнялись агентом в терминале.
+- **Плагин superpowers** — набор процессов для opencode: планирование до реализации, TDD (тесты писались раньше или вместе с кодом), субагентное исполнение задач с двухступенчатым ревью.
+- **MCP-сервер Context7** — подключён к агенту и давал актуальную документацию библиотек по ходу работы (FastMCP, LangGraph, ChromaDB, rank-bm25), что исключало написание кода по устаревшим сигнатурам из памяти модели.
+- **Модель GLM 5.3 (z.ai)** — исполняла задачи агента: анализ требований, написание кода и тестов, отладка (включая диагностику промпта грейдера), тексты документации.
+
+Процесс разработки: план → декомпозиция на задачи → субагент на каждую задачу. Результат работы субагента-исполнителя проходил два независимых ревью — соответствие спецификации задачи (spec review) и качество кода (quality review); в основную ветку попадали только прошедшие оба. Часть истории процесса зафиксирована в REPORT.md и GLOSSARY.md.
+
+## Тесты
+
+Структура (`tests/`, всего 83 теста, сеть не нужна):
+
+- `tests/conftest.py` — `FakeLLM` (программируемая очередь ответов с записью всех промптов) и `FakeEmbedder` (детерминированные векторы из sha1 хэша текста).
+- `tests/unit/` — узлы графа и сборка (`test_nodes.py`, `test_builder.py`), RRF (`test_rrf.py`), BM25 (`test_bm25.py`), чанкинг, загрузчики, индексер, сторы, эмбеддер, конфиг, типы.
+- `tests/e2e/test_mcp_tools.py` — все четыре MCP-инструмента через `fastmcp.Client`: сборка реального пайплайна с ChromaDB во временном каталоге и фейковыми LLM/эмбеддером.
+- `tests/test_sample_docs.py` — 26 проверочных фактов демонстрационной базы (параметризованный тест) и гейт суммарного размера `sample_docs/` (не меньше 500 КБ).
+
+CI (`.github/workflows/ci.yml`), GitHub Actions, два job'а:
+
+- `lint-and-test` — `uv sync --frozen`, `ruff check .`, `ruff format --check .`, `pytest -q`;
+- `docker-build` — сборка образа `docker build -t rag-kb:ci .`.

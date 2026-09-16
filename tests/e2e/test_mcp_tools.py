@@ -1,5 +1,7 @@
 # tests/e2e/test_mcp_tools.py
+import asyncio
 import json
+import time
 
 import pytest
 from fastmcp import Client
@@ -13,6 +15,21 @@ from rag_kb.retrieval.bm25_store import BM25Store
 from rag_kb.retrieval.hybrid import HybridRetriever
 from rag_kb.retrieval.stores import VectorStore
 from tests.conftest import FakeEmbedder, FakeLLM
+
+
+async def _call(client, tool: str, args: dict) -> dict:
+    return json.loads((await client.call_tool(tool, args)).content[0].text)
+
+
+async def _wait_until_indexed(client, timeout: float = 60.0) -> dict:
+    """Поллинг index_status, пока фоновая индексация не завершится."""
+    status = await _call(client, "index_status", {})
+    deadline = time.monotonic() + timeout
+    while status["indexing_in_progress"] and time.monotonic() < deadline:
+        await asyncio.sleep(0.1)
+        status = await _call(client, "index_status", {})
+    assert not status["indexing_in_progress"]
+    return status
 
 
 @pytest.fixture
@@ -45,16 +62,17 @@ async def test_all_four_tools_end_to_end(mcp, tmp_path):
         assert all(t.description and len(t.description) > 40 for t in tools)
 
         # fastmcp 4.x: call_tool возвращает CallToolResult, текст — в .content[0].text
-        status0 = json.loads((await client.call_tool("index_status", {})).content[0].text)
+        status0 = await _call(client, "index_status", {})
         assert status0["files"] == 0
+        assert status0["indexing_in_progress"] is False
 
-        report = json.loads(
-            (await client.call_tool("index_folder", {"path": str(docs)})).content[0].text
-        )
-        assert report["files"] == 1 and report["errors"] == []
+        started = await _call(client, "index_folder", {"path": str(docs)})
+        assert started["status"] in {"started", "already_running"}
 
-        status1 = json.loads((await client.call_tool("index_status", {})).content[0].text)
+        status1 = await _wait_until_indexed(client)
         assert status1["files"] == 1 and status1["chunks"] >= 1
+        assert status1["last_report"]["files"] == 1
+        assert status1["last_report"]["errors"] == []
 
         found = json.loads(
             (
@@ -87,6 +105,9 @@ async def test_ask_question_nothing_found(mcp, tmp_path):
     empty = tmp_path / "empty"
     empty.mkdir()
     async with Client(mcp) as client:
-        await client.call_tool("index_folder", {"path": str(empty)})
+        started = await _call(client, "index_folder", {"path": str(empty)})
+        assert started["status"] in {"started", "already_running"}
+        status = await _wait_until_indexed(client)
+        assert status["files"] == 0
         result = await client.call_tool("ask_question", {"question": "что-нибудь"})
         assert "ничего не найдено" in result.content[0].text.lower()

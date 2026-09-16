@@ -1,4 +1,6 @@
 # tests/unit/test_indexer.py
+import time
+
 import pytest
 
 from rag_kb.config import Settings
@@ -63,3 +65,45 @@ def test_index_folder_isolates_broken_file(indexer, tmp_path):
     assert len(report.errors) == 1
     assert "bad.md" in report.errors[0]
     assert indexer.status().files == 1  # хороший файл проиндексирован
+
+
+def _wait_until_done(indexer, timeout: float = 30.0) -> None:
+    deadline = time.monotonic() + timeout
+    while indexer.status().indexing_in_progress and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert not indexer.status().indexing_in_progress
+
+
+def test_start_indexing_background(indexer, tmp_path):
+    (tmp_path / "a.md").write_text("# Тест\n" + "содержимое " * 300, encoding="utf-8")
+    (tmp_path / "b.txt").write_text("короткий файл", encoding="utf-8")
+    result = indexer.start_indexing(tmp_path)
+    assert result["status"] == "started"
+    assert result["pattern"] == "**/*"
+    _wait_until_done(indexer)
+    stats = indexer.status()
+    assert stats.last_report is not None
+    assert stats.last_report.files == 2
+    assert stats.last_report.errors == []
+    assert stats.files == 2
+    assert stats.chunks > 2
+
+
+def test_start_indexing_already_running(indexer, tmp_path, monkeypatch):
+    from rag_kb.indexing.loaders import load_file
+
+    (tmp_path / "a.txt").write_text("текст", encoding="utf-8")
+
+    def slow_load(path):  # держит фоновый поток занятым, пока мы зовём start повторно
+        time.sleep(0.5)
+        return load_file(path)
+
+    monkeypatch.setattr("rag_kb.indexing.indexer.load_file", slow_load)
+    assert indexer.start_indexing(tmp_path)["status"] == "started"
+    second = indexer.start_indexing(tmp_path)
+    assert second["status"] == "already_running"
+    _wait_until_done(indexer)  # ждём завершения до выхода из теста (monkeypatch снимется)
+    stats = indexer.status()
+    assert stats.files == 1
+    assert stats.last_report is not None
+    assert stats.last_report.errors == []

@@ -38,3 +38,6 @@ class IndexStats:
     files: int
     chunks: int
     last_indexed_at: str | None
+    indexing_in_progress: bool = False
+    progress: str | None = None  # "3/17" во время фоновой индексации
+    last_report: IndexReport | None = None

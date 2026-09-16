@@ -15,5 +15,6 @@ def test_factory_returns_ollama():
 
 def test_factory_rejects_unknown():
     import pytest
+
     with pytest.raises(ValueError, match="embedding_provider"):
         create_embedder(Settings(embedding_provider="openai"))

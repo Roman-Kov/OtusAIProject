@@ -4,8 +4,11 @@ from rag_kb.types import Chunk
 
 
 def chunk(i):
-    return Chunk(id=str(i), text=f"t{i}",
-                 metadata={"source": "a", "chunk_index": i, "total_chunks": 5, "doc_type": "text"})
+    return Chunk(
+        id=str(i),
+        text=f"t{i}",
+        metadata={"source": "a", "chunk_index": i, "total_chunks": 5, "doc_type": "text"},
+    )
 
 
 def test_doc_found_by_both_ranks_first():

@@ -16,9 +16,11 @@ class StubRetriever:
 
 
 def chunk(i, text):
-    return Chunk(id=str(i), text=text,
-                 metadata={"source": f"f{i}.md", "chunk_index": 0, "total_chunks": 1,
-                           "doc_type": "text"})
+    return Chunk(
+        id=str(i),
+        text=text,
+        metadata={"source": f"f{i}.md", "chunk_index": 0, "total_chunks": 1, "doc_type": "text"},
+    )
 
 
 def build(retriever, answers):
@@ -38,8 +40,9 @@ def test_happy_path_generate_after_good_grade():
 def test_retry_loop_broadens_query():
     r = StubRetriever()
     r.results = [chunk(0, "про кэш")]
-    graph = build(r, ['{"relevant": "no"}', "кэш redis TTL хранение",
-                      '{"relevant": "yes"}', "Ответ."])
+    graph = build(
+        r, ['{"relevant": "no"}', "кэш redis TTL хранение", '{"relevant": "yes"}', "Ответ."]
+    )
     out = graph.invoke({"question": "почему данные устаревают?"})
     assert out["answer"] == "Ответ."
     assert out["attempt"] == 2  # был повторный поиск
@@ -49,8 +52,17 @@ def test_retry_loop_broadens_query():
 def test_max_two_retries_then_generate_with_what_we_have():
     r = StubRetriever()
     r.results = [chunk(0, "нерелевантное")]
-    graph = build(r, ['{"relevant": "no"}', "запрос2", '{"relevant": "no"}', "запрос3",
-                      '{"relevant": "yes"}', "Спасательный ответ."])
+    graph = build(
+        r,
+        [
+            '{"relevant": "no"}',
+            "запрос2",
+            '{"relevant": "no"}',
+            "запрос3",
+            '{"relevant": "yes"}',
+            "Спасательный ответ.",
+        ],
+    )
     out = graph.invoke({"question": "q?"})
     assert out["attempt"] == 3  # 1 попытка + 2 retry
     assert out["answer"] == "Спасательный ответ."
@@ -59,8 +71,9 @@ def test_max_two_retries_then_generate_with_what_we_have():
 def test_nothing_relevant_anywhere():
     r = StubRetriever()
     r.results = [chunk(0, "мимо")]
-    graph = build(r, ['{"relevant": "no"}', "запрос2", '{"relevant": "no"}', "запрос3",
-                      '{"relevant": "no"}'])
+    graph = build(
+        r, ['{"relevant": "no"}', "запрос2", '{"relevant": "no"}', "запрос3", '{"relevant": "no"}']
+    )
     out = graph.invoke({"question": "q?"})
     assert "ничего не найдено" in out["answer"].lower()
     assert out["sources"] == []

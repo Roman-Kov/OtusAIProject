@@ -98,7 +98,9 @@ GOLEM_REPAIR_GOLD_PER_HP = 47
 GOLEM_REPAIR_UNCHANGED_SINCE = "0.7.3"
 ORN_REPAIR_DISCOUNT = 0.2
 ORN_REPAIR_GOLD_PER_HP = 38
-ORN_REPAIR_NOTE = "47 × 0,8 = 37,6; округление вверх — «лучше переплатить меди, чем недоплатить камню»"
+ORN_REPAIR_NOTE = (
+    "47 × 0,8 = 37,6; округление вверх — «лучше переплатить меди, чем недоплатить камню»"
+)
 
 DAMAGE_MULTIPLIER_STEP = 0.05
 DEFENSE_MULTIPLIER_STEP = 0.025
@@ -211,9 +213,20 @@ class CreatureStats:
 
 CREATURES: Dict[str, CreatureStats] = {
     "iskrovik": CreatureStats(
-        id="iskrovik", name="Искровик", tier=1, dwelling="Кресальный навес",
-        attack=2, defense=1, damage_min=1, damage_max=2, damage_display="1-2",
-        health=4, speed=7, growth=14, cost_gold=25, ai_value=18,
+        id="iskrovik",
+        name="Искровик",
+        tier=1,
+        dwelling="Кресальный навес",
+        attack=2,
+        defense=1,
+        damage_min=1,
+        damage_max=2,
+        damage_display="1-2",
+        health=4,
+        speed=7,
+        growth=14,
+        cost_gold=25,
+        ai_value=18,
         upgrades_to="kresalo",
         special="поджиг; сухой рой — прогноз бурь",
         special_details=(
@@ -222,9 +235,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "kresalo": CreatureStats(
-        id="kresalo", name="Кресало", tier=1, dwelling="Кресальный навес",
-        attack=4, defense=2, damage_min=2, damage_max=3, damage_display="2-3",
-        health=6, speed=8, growth=14, cost_gold=40, ai_value=35,
+        id="kresalo",
+        name="Кресало",
+        tier=1,
+        dwelling="Кресальный навес",
+        attack=4,
+        defense=2,
+        damage_min=2,
+        damage_max=3,
+        damage_display="2-3",
+        health=6,
+        speed=8,
+        growth=14,
+        cost_gold=40,
+        ai_value=35,
         upgrade_of="iskrovik",
         special="удар жаром; не боится воды",
         special_details=(
@@ -233,9 +257,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "ugolnitsa": CreatureStats(
-        id="ugolnitsa", name="Угольница", tier=2, dwelling="Городская кошара",
-        attack=5, defense=4, damage_min=3, damage_max=7, damage_display="3-7",
-        health=20, speed=5, growth=9, cost_gold=70, ai_value=95,
+        id="ugolnitsa",
+        name="Угольница",
+        tier=2,
+        dwelling="Городская кошара",
+        attack=5,
+        defense=4,
+        damage_min=3,
+        damage_max=7,
+        damage_display="3-7",
+        health=20,
+        speed=5,
+        growth=9,
+        cost_gold=70,
+        ai_value=95,
         upgrades_to="zharovaia_ugolnitsa",
         special="живой таран; полевое молоко",
         special_details=(
@@ -244,10 +279,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "zharovaia_ugolnitsa": CreatureStats(
-        id="zharovaia_ugolnitsa", name="Жаровая угольница", tier=2,
-        dwelling="Городская кошара", attack=7, defense=6,
-        damage_min=5, damage_max=9, damage_display="5-9",
-        health=24, speed=6, growth=9, cost_gold=110, ai_value=140,
+        id="zharovaia_ugolnitsa",
+        name="Жаровая угольница",
+        tier=2,
+        dwelling="Городская кошара",
+        attack=7,
+        defense=6,
+        damage_min=5,
+        damage_max=9,
+        damage_display="5-9",
+        health=24,
+        speed=6,
+        growth=9,
+        cost_gold=110,
+        ai_value=140,
         upgrade_of="ugolnitsa",
         special="таран-загривок; ворота с первого удара",
         special_details=(
@@ -256,9 +301,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "pepelnyi_volk": CreatureStats(
-        id="pepelnyi_volk", name="Пепельный волк", tier=3, dwelling="Егерский питомник",
-        attack=6, defense=3, damage_min=3, damage_max=5, damage_display="3-5",
-        health=15, speed=8, growth=7, cost_gold=120, ai_value=130,
+        id="pepelnyi_volk",
+        name="Пепельный волк",
+        tier=3,
+        dwelling="Егерский питомник",
+        attack=6,
+        defense=3,
+        damage_min=3,
+        damage_max=5,
+        damage_display="3-5",
+        health=15,
+        speed=8,
+        growth=7,
+        cost_gold=120,
+        ai_value=130,
         upgrades_to="dymnyi_volk",
         special="разведка; помнит лица",
         special_details=(
@@ -267,9 +323,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "dymnyi_volk": CreatureStats(
-        id="dymnyi_volk", name="Дымный волк", tier=3, dwelling="Егерский питомник",
-        attack=8, defense=4, damage_min=4, damage_max=6, damage_display="4-6",
-        health=18, speed=9, growth=7, cost_gold=160, ai_value=170,
+        id="dymnyi_volk",
+        name="Дымный волк",
+        tier=3,
+        dwelling="Егерский питомник",
+        attack=8,
+        defense=4,
+        damage_min=4,
+        damage_max=6,
+        damage_display="4-6",
+        health=18,
+        speed=9,
+        growth=7,
+        cost_gold=160,
+        ai_value=170,
         upgrade_of="pepelnyi_volk",
         special="«не теряет след»; ведёт сквозь фронты",
         special_details=(
@@ -278,9 +345,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "molot": CreatureStats(
-        id="molot", name="Молот", tier=4, dwelling="Вербовочный двор",
-        attack=7, defense=9, damage_min=6, damage_max=9, damage_display="6-9",
-        health=30, speed=5, growth=6, cost_gold=150, ai_value=220,
+        id="molot",
+        name="Молот",
+        tier=4,
+        dwelling="Вербовочный двор",
+        attack=7,
+        defense=9,
+        damage_min=6,
+        damage_max=9,
+        damage_display="6-9",
+        health=30,
+        speed=5,
+        growth=6,
+        cost_gold=150,
+        ai_value=220,
         upgrades_to="chernyi_molot",
         special="секирный строй; «один удар вместо трёх»",
         special_details=(
@@ -289,9 +367,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "chernyi_molot": CreatureStats(
-        id="chernyi_molot", name="Чёрный молот", tier=4, dwelling="Вербовочный двор",
-        attack=9, defense=11, damage_min=8, damage_max=12, damage_display="8-12",
-        health=38, speed=6, growth=6, cost_gold=200, ai_value=320,
+        id="chernyi_molot",
+        name="Чёрный молот",
+        tier=4,
+        dwelling="Вербовочный двор",
+        attack=9,
+        defense=11,
+        damage_min=8,
+        damage_max=12,
+        damage_display="8-12",
+        health=38,
+        speed=6,
+        growth=6,
+        cost_gold=200,
+        ai_value=320,
         upgrade_of="molot",
         special="право первого удара",
         special_details=(
@@ -300,10 +389,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "obsidianovyi_golem": CreatureStats(
-        id="obsidianovyi_golem", name="Обсидиановый голем", tier=5,
-        dwelling="Големная печь", attack=9, defense=12,
-        damage_min=10, damage_max=14, damage_display="10-14",
-        health=50, speed=5, growth=4, cost_gold=275, ai_value=350,
+        id="obsidianovyi_golem",
+        name="Обсидиановый голем",
+        tier=5,
+        dwelling="Големная печь",
+        attack=9,
+        defense=12,
+        damage_min=10,
+        damage_max=14,
+        damage_display="10-14",
+        health=50,
+        speed=5,
+        growth=4,
+        cost_gold=275,
+        ai_value=350,
         upgrades_to="kleimenyi_golem",
         special="ремонт: 47 золота за ХП; «полустекло»: -25% урона от магии",
         special_details=(
@@ -313,10 +412,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "kleimenyi_golem": CreatureStats(
-        id="kleimenyi_golem", name="Клеймёный голем", tier=5,
-        dwelling="Големная печь", attack=11, defense=14,
-        damage_min=12, damage_max=16, damage_display="12-16",
-        health=60, speed=5, growth=4, cost_gold=375, ai_value=480,
+        id="kleimenyi_golem",
+        name="Клеймёный голем",
+        tier=5,
+        dwelling="Големная печь",
+        attack=11,
+        defense=14,
+        damage_min=12,
+        damage_max=16,
+        damage_display="12-16",
+        health=60,
+        speed=5,
+        growth=4,
+        cost_gold=375,
+        ai_value=480,
         upgrade_of="obsidianovyi_golem",
         special="то же, что базовый; «привычка строя»",
         special_details=(
@@ -325,10 +434,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "pepelnaia_garpiia": CreatureStats(
-        id="pepelnaia_garpiia", name="Пепельная гарпия", tier=6,
-        dwelling="Гнездовой навес", attack=10, defense=8,
-        damage_min=6, damage_max=10, damage_display="6-10",
-        health=25, speed=11, growth=3, cost_gold=350, ai_value=460,
+        id="pepelnaia_garpiia",
+        name="Пепельная гарпия",
+        tier=6,
+        dwelling="Гнездовой навес",
+        attack=10,
+        defense=8,
+        damage_min=6,
+        damage_max=10,
+        damage_display="6-10",
+        health=25,
+        speed=11,
+        growth=3,
+        cost_gold=350,
+        ai_value=460,
         upgrades_to="garpiia_zavesnitsa",
         special="«Пепельная завеса»: 25% уклонения",
         special_details=(
@@ -337,10 +456,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "garpiia_zavesnitsa": CreatureStats(
-        id="garpiia_zavesnitsa", name="Гарпия-завесница", tier=6,
-        dwelling="Гнездовой навес", attack=12, defense=10,
-        damage_min=8, damage_max=12, damage_display="8-12",
-        health=30, speed=12, growth=3, cost_gold=500, ai_value=640,
+        id="garpiia_zavesnitsa",
+        name="Гарпия-завесница",
+        tier=6,
+        dwelling="Гнездовой навес",
+        attack=12,
+        defense=10,
+        damage_min=8,
+        damage_max=12,
+        damage_display="8-12",
+        health=30,
+        speed=12,
+        growth=3,
+        cost_gold=500,
+        ai_value=640,
         upgrade_of="pepelnaia_garpiia",
         special="завеса 25%; налёт без ответного удара",
         special_details=(
@@ -349,9 +478,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "fitil": CreatureStats(
-        id="fitil", name="Фитиль", tier="особое", dwelling="Академия огня",
-        attack=2, defense=4, damage_min=8, damage_max=12, damage_display="8-12",
-        health=20, speed=6, growth=2, cost_gold=250, ai_value=290,
+        id="fitil",
+        name="Фитиль",
+        tier="особое",
+        dwelling="Академия огня",
+        attack=2,
+        defense=4,
+        damage_min=8,
+        damage_max=12,
+        damage_display="8-12",
+        health=20,
+        speed=6,
+        growth=2,
+        cost_gold=250,
+        ai_value=290,
         upgrades_to="plamennyi",
         special="дальний огненный удар",
         special_details=(
@@ -360,9 +500,20 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "plamennyi": CreatureStats(
-        id="plamennyi", name="Пламенный", tier="особое", dwelling="Академия огня",
-        attack=4, defense=6, damage_min=12, damage_max=18, damage_display="12-18",
-        health=28, speed=7, growth=2, cost_gold=400, ai_value=460,
+        id="plamennyi",
+        name="Пламенный",
+        tier="особое",
+        dwelling="Академия огня",
+        attack=4,
+        defense=6,
+        damage_min=12,
+        damage_max=18,
+        damage_display="12-18",
+        health=28,
+        speed=7,
+        growth=2,
+        cost_gold=400,
+        ai_value=460,
         upgrade_of="fitil",
         special="дальний удар; «подсветка» ночью",
         special_details=(
@@ -371,10 +522,22 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "lavovyi_drakon": CreatureStats(
-        id="lavovyi_drakon", name="Лавовый Дракон", tier=7, dwelling="Горн зова",
-        attack=18, defense=18, damage_min=40, damage_max=63, damage_display="40-63",
-        health=220, speed=9, growth=1, cost_gold=2400, ai_value=4900,
-        cost_ingots=1, effective_cost_gold=2650,
+        id="lavovyi_drakon",
+        name="Лавовый Дракон",
+        tier=7,
+        dwelling="Горн зова",
+        attack=18,
+        defense=18,
+        damage_min=40,
+        damage_max=63,
+        damage_display="40-63",
+        health=220,
+        speed=9,
+        growth=1,
+        cost_gold=2400,
+        ai_value=4900,
+        cost_ingots=1,
+        effective_cost_gold=2650,
         upgrades_to="drakon_glubinnogo_zhara",
         special="иммунитет к огню; таран",
         special_details=(
@@ -384,11 +547,22 @@ CREATURES: Dict[str, CreatureStats] = {
         ),
     ),
     "drakon_glubinnogo_zhara": CreatureStats(
-        id="drakon_glubinnogo_zhara", name="Дракон глубинного жара", tier=7,
-        dwelling="Горн зова", attack=21, defense=21,
-        damage_min=45, damage_max=70, damage_display="45-70",
-        health=275, speed=10, growth=1, cost_gold=3200, ai_value=6700,
-        cost_ingots=2, effective_cost_gold=3700,
+        id="drakon_glubinnogo_zhara",
+        name="Дракон глубинного жара",
+        tier=7,
+        dwelling="Горн зова",
+        attack=21,
+        defense=21,
+        damage_min=45,
+        damage_max=70,
+        damage_display="45-70",
+        health=275,
+        speed=10,
+        growth=1,
+        cost_gold=3200,
+        ai_value=6700,
+        cost_ingots=2,
+        effective_cost_gold=3700,
         upgrade_of="lavovyi_drakon",
         special="иммунитет к огню; жаркая чешуя",
         special_details=(
@@ -567,7 +741,9 @@ def damage_multiplier(attack: int, defense: int) -> float:
     return max(1.0 - DEFENSE_MULTIPLIER_STEP * (-diff), MIN_DAMAGE_MULTIPLIER)
 
 
-def stack_damage(stats: CreatureStats, count: int, target_defense: int) -> Tuple[float, float, float]:
+def stack_damage(
+    stats: CreatureStats, count: int, target_defense: int
+) -> Tuple[float, float, float]:
     """Считает урон отряда из ``count`` голов против защиты ``target_defense``.
 
     Возвращаются минимальный, средний и максимальный урон за один раунд с
@@ -745,7 +921,9 @@ def recruit_cost(army: Mapping[str, int]) -> CostSummary:
     for stats, count in _army_counts(army):
         gold += stats.cost_gold * count
         ingots += (stats.cost_ingots or 0) * count
-    return CostSummary(gold=gold, ingots=ingots, effective_gold=gold + ingots * INGOT_CITY_RATE_GOLD)
+    return CostSummary(
+        gold=gold, ingots=ingots, effective_gold=gold + ingots * INGOT_CITY_RATE_GOLD
+    )
 
 
 def golem_repair_cost(hp_lost: int, orn_discount: bool = False) -> int:
@@ -972,7 +1150,9 @@ def load_creatures(path: Union[str, Path]) -> Dict[str, CreatureStats]:
     return loaded
 
 
-def render_table(headers: Sequence[str], rows: Sequence[Sequence[str]], numeric: Sequence[bool] = ()) -> str:
+def render_table(
+    headers: Sequence[str], rows: Sequence[Sequence[str]], numeric: Sequence[bool] = ()
+) -> str:
     """Формирует моноширинную таблицу с выравниванием колонок.
 
     Числовые колонки выравниваются вправо, текстовые — влево; ширина
@@ -1116,28 +1296,64 @@ def build_parser() -> argparse.ArgumentParser:
     ).add_argument("target", metavar="СУЩЕСТВО", help="id или русское имя, например molot")
 
     cost_parser = subparsers.add_parser("cost", parents=[common], help="стоимость найма армии")
-    cost_parser.add_argument("--army", required=True, metavar="СПЕЦ", help='армия: "molot:10,lavovyi_drakon:1"')
-    cost_parser.add_argument("--weeks", type=int, default=1, metavar="N", help="число недель найма (по умолчанию 1)")
+    cost_parser.add_argument(
+        "--army", required=True, metavar="СПЕЦ", help='армия: "molot:10,lavovyi_drakon:1"'
+    )
+    cost_parser.add_argument(
+        "--weeks", type=int, default=1, metavar="N", help="число недель найма (по умолчанию 1)"
+    )
     cost_parser.add_argument("--json", action="store_true", help="вывести итог машиночитаемым JSON")
 
-    stats_parser = subparsers.add_parser("stats", parents=[common], help="сводные боевые показатели армии")
-    stats_parser.add_argument("--army", required=True, metavar="СПЕЦ", help='армия: "molot:10,pepelnaia_garpiia:3"')
-    stats_parser.add_argument("--defense", type=int, default=10, metavar="N", help="защита цели (по умолчанию 10)")
-    stats_parser.add_argument("--json", action="store_true", help="вывести итог машиночитаемым JSON")
+    stats_parser = subparsers.add_parser(
+        "stats", parents=[common], help="сводные боевые показатели армии"
+    )
+    stats_parser.add_argument(
+        "--army", required=True, metavar="СПЕЦ", help='армия: "molot:10,pepelnaia_garpiia:3"'
+    )
+    stats_parser.add_argument(
+        "--defense", type=int, default=10, metavar="N", help="защита цели (по умолчанию 10)"
+    )
+    stats_parser.add_argument(
+        "--json", action="store_true", help="вывести итог машиночитаемым JSON"
+    )
 
-    battle_parser = subparsers.add_parser("battle", parents=[common], help="симуляция стычки двух армий")
+    battle_parser = subparsers.add_parser(
+        "battle", parents=[common], help="симуляция стычки двух армий"
+    )
     battle_parser.add_argument("--attacker", required=True, metavar="СПЕЦ", help="армия атакующих")
-    battle_parser.add_argument("--defender", required=True, metavar="СПЕЦ", help="армия защищающихся")
-    battle_parser.add_argument("--seed", type=int, default=None, metavar="N", help="зерно ГПЧ для уклонений гарпий")
-    battle_parser.add_argument("--rounds", type=int, default=100, metavar="N", help="потолок раундов (по умолчанию 100)")
+    battle_parser.add_argument(
+        "--defender", required=True, metavar="СПЕЦ", help="армия защищающихся"
+    )
+    battle_parser.add_argument(
+        "--seed", type=int, default=None, metavar="N", help="зерно ГПЧ для уклонений гарпий"
+    )
+    battle_parser.add_argument(
+        "--rounds", type=int, default=100, metavar="N", help="потолок раундов (по умолчанию 100)"
+    )
     battle_parser.add_argument("--log", action="store_true", help="напечатать полный журнал боя")
-    battle_parser.add_argument("--json", action="store_true", help="вывести отчёт машиночитаемым JSON")
+    battle_parser.add_argument(
+        "--json", action="store_true", help="вывести отчёт машиночитаемым JSON"
+    )
 
-    repair_parser = subparsers.add_parser("repair", parents=[common], help="стоимость ремонта големов")
-    repair_parser.add_argument("--creature", dest="creature_id", default="obsidianovyi_golem", metavar="ID", help="голем (по умолчанию obsidianovyi_golem)")
-    repair_parser.add_argument("--hp", required=True, type=int, metavar="N", help="сколько здоровья потеряно")
-    repair_parser.add_argument("--orn", action="store_true", help="тариф Орна Тлеющего Круга: 38 золота за ХП")
-    repair_parser.add_argument("--json", action="store_true", help="вывести итог машиночитаемым JSON")
+    repair_parser = subparsers.add_parser(
+        "repair", parents=[common], help="стоимость ремонта големов"
+    )
+    repair_parser.add_argument(
+        "--creature",
+        dest="creature_id",
+        default="obsidianovyi_golem",
+        metavar="ID",
+        help="голем (по умолчанию obsidianovyi_golem)",
+    )
+    repair_parser.add_argument(
+        "--hp", required=True, type=int, metavar="N", help="сколько здоровья потеряно"
+    )
+    repair_parser.add_argument(
+        "--orn", action="store_true", help="тариф Орна Тлеющего Круга: 38 золота за ХП"
+    )
+    repair_parser.add_argument(
+        "--json", action="store_true", help="вывести итог машиночитаемым JSON"
+    )
 
     subparsers.add_parser("economy", help="недельная экономика пирамиды (7770 золота + 1 слиток)")
     return parser
@@ -1165,11 +1381,13 @@ def _cmd_list(args: argparse.Namespace) -> int:
                 str(stats.ai_value),
             ]
         )
-    print(render_table(
-        ["Существо", "Ур.", "Атк", "Зщт", "Урон", "ХП", "Скр", "Прир", "Цена", "ИИ"],
-        rows,
-        numeric=(False, True, True, True, False, True, True, True, False, True),
-    ))
+    print(
+        render_table(
+            ["Существо", "Ур.", "Атк", "Зщт", "Урон", "ХП", "Скр", "Прир", "Цена", "ИИ"],
+            rows,
+            numeric=(False, True, True, True, False, True, True, True, False, True),
+        )
+    )
     return 0
 
 
@@ -1183,7 +1401,11 @@ def _cmd_cost(args: argparse.Namespace) -> int:
         effective_gold=one_shot.effective_gold * args.weeks,
     )
     if args.json:
-        print(json.dumps({"army": army, "weeks": args.weeks, **vars(summary)}, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {"army": army, "weeks": args.weeks, **vars(summary)}, ensure_ascii=False, indent=2
+            )
+        )
         return 0
     print(f"Армия: {args.army}")
     print(f"Недель найма: {args.weeks}")
@@ -1202,8 +1424,10 @@ def _cmd_stats(args: argparse.Namespace) -> int:
         return 0
     print(f"Армия: {args.army} (отрядов: {report.stacks})")
     print(f"Голов: {report.heads}   Суммарное здоровье: {report.total_health}")
-    print(f"Урон за раунд против защиты {args.defense}: "
-          f"{report.min_damage} — {report.max_damage} (в среднем {report.avg_damage})")
+    print(
+        f"Урон за раунд против защиты {args.defense}: "
+        f"{report.min_damage} — {report.max_damage} (в среднем {report.avg_damage})"
+    )
     print(f"Мощь (оценка ИИ): {report.power}   Лучшая скорость: {report.best_speed}")
     return 0
 
@@ -1219,25 +1443,30 @@ def _cmd_battle(args: argparse.Namespace) -> int:
         "draw": "взаимное истребление",
     }[report.winner]
     if args.json:
-        print(json.dumps(
-            {
-                "attacker": attacker,
-                "defender": defender,
-                "seed": args.seed,
-                "winner": report.winner,
-                "rounds": report.rounds,
-                "attacker_losses": report.attacker_losses,
-                "defender_losses": report.defender_losses,
-                "log": report.log,
-            },
-            ensure_ascii=False,
-            indent=2,
-        ))
+        print(
+            json.dumps(
+                {
+                    "attacker": attacker,
+                    "defender": defender,
+                    "seed": args.seed,
+                    "winner": report.winner,
+                    "rounds": report.rounds,
+                    "attacker_losses": report.attacker_losses,
+                    "defender_losses": report.defender_losses,
+                    "log": report.log,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
     print(f"Атакующие: {args.attacker}")
     print(f"Защитники: {args.defender}")
     print(f"Итог: {verdict} за {report.rounds} раундов (зерно {args.seed}).")
-    for label, losses in (("атакующие", report.attacker_losses), ("защитники", report.defender_losses)):
+    for label, losses in (
+        ("атакующие", report.attacker_losses),
+        ("защитники", report.defender_losses),
+    ):
         if losses:
             pretty = ", ".join(f"{CREATURES[cid].name} x{n}" for cid, n in losses.items())
             print(f"Потери {label}: {pretty}")
@@ -1256,16 +1485,20 @@ def _cmd_repair(args: argparse.Namespace) -> int:
         )
     price = golem_repair_cost(args.hp, orn_discount=args.orn)
     if args.json:
-        print(json.dumps(
-            {
-                "creature": stats.id,
-                "hp_lost": args.hp,
-                "rate_gold_per_hp": ORN_REPAIR_GOLD_PER_HP if args.orn else GOLEM_REPAIR_GOLD_PER_HP,
-                "total_gold": price,
-            },
-            ensure_ascii=False,
-            indent=2,
-        ))
+        print(
+            json.dumps(
+                {
+                    "creature": stats.id,
+                    "hp_lost": args.hp,
+                    "rate_gold_per_hp": ORN_REPAIR_GOLD_PER_HP
+                    if args.orn
+                    else GOLEM_REPAIR_GOLD_PER_HP,
+                    "total_gold": price,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
     rate = ORN_REPAIR_GOLD_PER_HP if args.orn else GOLEM_REPAIR_GOLD_PER_HP
     print(f"Существо: {stats.name}")
@@ -1281,15 +1514,22 @@ def _cmd_economy() -> int:
     """Выполняет подкоманду ``economy``: недельная таблица пирамиды."""
     rows = weekly_pyramid_cost()
     table_rows = [
-        [r["dwelling"], str(r["heads_per_week"]), str(r["gold_per_week"]),
-         r.get("extra", ""), f"{r['share_percent']:.1f}%"]
+        [
+            r["dwelling"],
+            str(r["heads_per_week"]),
+            str(r["gold_per_week"]),
+            r.get("extra", ""),
+            f"{r['share_percent']:.1f}%",
+        ]
         for r in rows
     ]
-    print(render_table(
-        ["Жилище", "Голов/нед", "Золото/нед", "Слитки", "Доля"],
-        table_rows,
-        numeric=(False, True, True, False, False),
-    ))
+    print(
+        render_table(
+            ["Жилище", "Голов/нед", "Золото/нед", "Слитки", "Доля"],
+            table_rows,
+            numeric=(False, True, True, False, False),
+        )
+    )
     return 0
 
 

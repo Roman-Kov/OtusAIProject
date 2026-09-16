@@ -38,7 +38,8 @@ class VectorStore:
         if self.count() == 0:
             return []
         res = self._collection.query(
-            query_embeddings=[embedding], n_results=min(top_k, self.count()),
+            query_embeddings=[embedding],
+            n_results=min(top_k, self.count()),
             include=["documents", "metadatas"],
         )
         return [
@@ -48,8 +49,10 @@ class VectorStore:
 
     def all_chunks(self) -> list[Chunk]:
         res = self._collection.get(include=["documents", "metadatas"])
-        return [Chunk(id=i, text=d, metadata=m)
-                for i, d, m in zip(res["ids"], res["documents"], res["metadatas"], strict=True)]
+        return [
+            Chunk(id=i, text=d, metadata=m)
+            for i, d, m in zip(res["ids"], res["documents"], res["metadatas"], strict=True)
+        ]
 
     def count(self) -> int:
         return self._collection.count()

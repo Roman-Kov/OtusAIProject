@@ -61,20 +61,23 @@ OtusAIProject/
 class LoadedDoc:
     path: Path
     text: str
-    doc_type: str          # "markdown" | "text" | "python" | "js" | "ts" | "json" | "yaml"
+    doc_type: str  # "markdown" | "text" | "python" | "js" | "ts" | "json" | "yaml"
+
 
 @dataclass
 class Chunk:
-    id: str                # sha1(f"{source}:{chunk_index}")
+    id: str  # sha1(f"{source}:{chunk_index}")
     text: str
-    metadata: dict         # {"source": str, "chunk_index": int, "total_chunks": int, "doc_type": str}
+    metadata: dict  # {"source": str, "chunk_index": int, "total_chunks": int, "doc_type": str}
+
 
 @dataclass
 class IndexReport:
     files: int
     chunks: int
     seconds: float
-    errors: list           # list[str]
+    errors: list  # list[str]
+
 
 @dataclass
 class IndexStats:
@@ -297,8 +300,11 @@ from rag_kb.types import Chunk, IndexReport, IndexStats, LoadedDoc
 
 def test_dataclasses_hold_values(tmp_path):
     doc = LoadedDoc(path=tmp_path / "a.md", text="hello", doc_type="markdown")
-    chunk = Chunk(id="x", text="hello", metadata={"source": "a.md", "chunk_index": 0,
-                                                  "total_chunks": 1, "doc_type": "markdown"})
+    chunk = Chunk(
+        id="x",
+        text="hello",
+        metadata={"source": "a.md", "chunk_index": 0, "total_chunks": 1, "doc_type": "markdown"},
+    )
     report = IndexReport(files=1, chunks=1, seconds=0.1, errors=[])
     stats = IndexStats(files=1, chunks=1, last_indexed_at=None)
     assert (doc.text, chunk.id, report.files, stats.chunks) == ("hello", "x", 1, 1)
@@ -348,15 +354,18 @@ def test_scan_folder_respects_pattern(tmp_path):
     assert [p.name for p in scan_folder(tmp_path, "*.md")] == ["a.md"]
 
 
-@pytest.mark.parametrize("name,text,doc_type", [
-    ("a.md", "# Заголовок", "markdown"),
-    ("b.txt", "текст", "text"),
-    ("c.py", "x = 1", "python"),
-    ("d.js", "const x = 1", "js"),
-    ("e.ts", "const x: number = 1", "ts"),
-    ("f.json", '{"k": 1}', "json"),
-    ("g.yaml", "k: v", "yaml"),
-])
+@pytest.mark.parametrize(
+    "name,text,doc_type",
+    [
+        ("a.md", "# Заголовок", "markdown"),
+        ("b.txt", "текст", "text"),
+        ("c.py", "x = 1", "python"),
+        ("d.js", "const x = 1", "js"),
+        ("e.ts", "const x: number = 1", "ts"),
+        ("f.json", '{"k": 1}', "json"),
+        ("g.yaml", "k: v", "yaml"),
+    ],
+)
 def test_load_file_supported_formats(tmp_path, name, text, doc_type):
     p = tmp_path / name
     p.write_text(text, encoding="utf-8")
@@ -387,15 +396,19 @@ from rag_kb.types import LoadedDoc
 SUPPORTED_EXTENSIONS = {".md", ".txt", ".py", ".js", ".ts", ".json", ".yaml"}
 
 DOC_TYPE_BY_EXT = {
-    ".md": "markdown", ".txt": "text", ".py": "python", ".js": "js",
-    ".ts": "ts", ".json": "json", ".yaml": "yaml",
+    ".md": "markdown",
+    ".txt": "text",
+    ".py": "python",
+    ".js": "js",
+    ".ts": "ts",
+    ".json": "json",
+    ".yaml": "yaml",
 }
 
 
 def scan_folder(folder: Path, pattern: str = "**/*") -> list[Path]:
     return sorted(
-        p for p in folder.glob(pattern)
-        if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS
+        p for p in folder.glob(pattern) if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS
     )
 
 
@@ -494,10 +507,18 @@ def split_document(doc: LoadedDoc, chunk_size: int, chunk_overlap: int) -> list[
     chunks = []
     for i, text in enumerate(parts):
         chunk_id = hashlib.sha1(f"{source}:{i}".encode()).hexdigest()
-        chunks.append(Chunk(id=chunk_id, text=text, metadata={
-            "source": source, "chunk_index": i,
-            "total_chunks": len(parts), "doc_type": doc.doc_type,
-        }))
+        chunks.append(
+            Chunk(
+                id=chunk_id,
+                text=text,
+                metadata={
+                    "source": source,
+                    "chunk_index": i,
+                    "total_chunks": len(parts),
+                    "doc_type": doc.doc_type,
+                },
+            )
+        )
     return chunks
 ```
 
@@ -533,6 +554,7 @@ def test_factory_returns_ollama():
 
 def test_factory_rejects_unknown():
     import pytest
+
     with pytest.raises(ValueError, match="embedding_provider"):
         create_embedder(Settings(embedding_provider="openai"))
 ```
@@ -614,14 +636,18 @@ from rag_kb.types import Chunk
 
 def make_chunks(n=3, source="a.md"):
     return [
-        Chunk(id=f"id{i}", text=f"текст номер {i}",
-              metadata={"source": source, "chunk_index": i, "total_chunks": n, "doc_type": "text"})
+        Chunk(
+            id=f"id{i}",
+            text=f"текст номер {i}",
+            metadata={"source": source, "chunk_index": i, "total_chunks": n, "doc_type": "text"},
+        )
         for i in range(n)
     ]
 
 
 def make_store(tmp_path):
     from rag_kb.config import Settings
+
     return VectorStore(Settings(chroma_dir=tmp_path / "chroma", collection_name="test"))
 
 
@@ -648,8 +674,7 @@ def test_add_chunks_upserts_by_id(tmp_path):
 
 def test_delete_by_source(tmp_path):
     store = make_store(tmp_path)
-    store.add_chunks(make_chunks(2, source="a.md") + make_chunks(2, source="b.md"),
-                     [[0.0] * 4] * 4)
+    store.add_chunks(make_chunks(2, source="a.md") + make_chunks(2, source="b.md"), [[0.0] * 4] * 4)
     store.delete_by_source("a.md")
     assert store.count() == 2
     assert store.unique_sources() == ["b.md"]
@@ -701,7 +726,8 @@ class VectorStore:
         if self.count() == 0:
             return []
         res = self._collection.query(
-            query_embeddings=[embedding], n_results=min(top_k, self.count()),
+            query_embeddings=[embedding],
+            n_results=min(top_k, self.count()),
             include=["documents", "metadatas"],
         )
         return [
@@ -711,8 +737,10 @@ class VectorStore:
 
     def all_chunks(self) -> list[Chunk]:
         res = self._collection.get(include=["documents", "metadatas"])
-        return [Chunk(id=i, text=d, metadata=m)
-                for i, d, m in zip(res["ids"], res["documents"], res["metadatas"], strict=True)]
+        return [
+            Chunk(id=i, text=d, metadata=m)
+            for i, d, m in zip(res["ids"], res["documents"], res["metadatas"], strict=True)
+        ]
 
     def count(self) -> int:
         return self._collection.count()
@@ -751,14 +779,22 @@ from rag_kb.types import Chunk
 
 
 def chunk(i, text):
-    return Chunk(id=str(i), text=text,
-                 metadata={"source": "a.md", "chunk_index": i, "total_chunks": 3, "doc_type": "text"})
+    return Chunk(
+        id=str(i),
+        text=text,
+        metadata={"source": "a.md", "chunk_index": i, "total_chunks": 3, "doc_type": "text"},
+    )
 
 
 def test_bm25_finds_exact_keyword():
     store = BM25Store()
-    store.build([chunk(0, "настройка кэша redis"), chunk(1, "логирование запросов"),
-                 chunk(2, "TOKEN_EXPIRY_HOURS равен 72")])
+    store.build(
+        [
+            chunk(0, "настройка кэша redis"),
+            chunk(1, "логирование запросов"),
+            chunk(2, "TOKEN_EXPIRY_HOURS равен 72"),
+        ]
+    )
     results = store.search("TOKEN_EXPIRY_HOURS", top_k=1)
     assert results[0][0].id == "2"
 
@@ -822,8 +858,11 @@ from rag_kb.types import Chunk
 
 
 def chunk(i):
-    return Chunk(id=str(i), text=f"t{i}",
-                 metadata={"source": "a", "chunk_index": i, "total_chunks": 5, "doc_type": "text"})
+    return Chunk(
+        id=str(i),
+        text=f"t{i}",
+        metadata={"source": "a", "chunk_index": i, "total_chunks": 5, "doc_type": "text"},
+    )
 
 
 def test_doc_found_by_both_ranks_first():
@@ -863,7 +902,9 @@ from rag_kb.retrieval.stores import VectorStore
 from rag_kb.types import Chunk
 
 
-def rrf_fuse(list_a: list[Chunk], list_b: list[Chunk], k: int = 60, top_k: int | None = None) -> list[Chunk]:
+def rrf_fuse(
+    list_a: list[Chunk], list_b: list[Chunk], k: int = 60, top_k: int | None = None
+) -> list[Chunk]:
     """Reciprocal Rank Fusion: score(d) = sum 1/(k + rank_i(d))."""
     scores: dict[str, float] = {}
     chunks_by_id: dict[str, Chunk] = {}
@@ -880,8 +921,9 @@ def rrf_fuse(list_a: list[Chunk], list_b: list[Chunk], k: int = 60, top_k: int |
 class HybridRetriever:
     """Гибридный поиск: BM25 (точные ключевые слова) + вектор (смысл) → RRF."""
 
-    def __init__(self, vector_store: VectorStore, embedder: Embedder, bm25: BM25Store,
-                 settings: Settings) -> None:
+    def __init__(
+        self, vector_store: VectorStore, embedder: Embedder, bm25: BM25Store, settings: Settings
+    ) -> None:
         self._vector_store = vector_store
         self._embedder = embedder
         self._bm25 = bm25
@@ -920,6 +962,7 @@ class FakeEmbedder:
 
     def _vec(self, text: str) -> list[float]:
         import hashlib
+
         digest = hashlib.sha1(text.encode()).digest()
         return [b / 255.0 for b in digest[:16]]
 
@@ -1020,8 +1063,9 @@ from rag_kb.types import IndexReport, IndexStats
 
 
 class Indexer:
-    def __init__(self, vector_store: VectorStore, embedder: Embedder, bm25: BM25Store,
-                 settings: Settings) -> None:
+    def __init__(
+        self, vector_store: VectorStore, embedder: Embedder, bm25: BM25Store, settings: Settings
+    ) -> None:
         self.vector_store = vector_store
         self._embedder = embedder
         self._bm25 = bm25
@@ -1038,7 +1082,9 @@ class Indexer:
         for path in files:
             try:
                 doc = load_file(path)
-                chunks = split_document(doc, self._settings.chunk_size, self._settings.chunk_overlap)
+                chunks = split_document(
+                    doc, self._settings.chunk_size, self._settings.chunk_overlap
+                )
                 embeddings = self._embedder.embed_documents([c.text for c in chunks])
                 self.vector_store.delete_by_source(str(path))
                 self.vector_store.add_chunks(chunks, embeddings)
@@ -1047,8 +1093,12 @@ class Indexer:
                 errors.append(f"{path}: {exc}")
         self._bm25.build(self.vector_store.all_chunks())
         self.vector_store.set_last_indexed_at(datetime.now(UTC).isoformat(timespec="seconds"))
-        return IndexReport(files=len(files) - len(errors), chunks=total_chunks,
-                           seconds=round(time.perf_counter() - started, 2), errors=errors)
+        return IndexReport(
+            files=len(files) - len(errors),
+            chunks=total_chunks,
+            seconds=round(time.perf_counter() - started, 2),
+            errors=errors,
+        )
 
     def status(self) -> IndexStats:
         return IndexStats(
@@ -1123,13 +1173,13 @@ from rag_kb.types import Chunk
 
 
 class GraphState(TypedDict):
-    question: str          # исходный вопрос пользователя
-    query: str             # текущий (пере)сформулированный поисковый запрос
-    attempt: int           # номер попытки поиска (0 = первая)
-    chunks: list[Chunk]    # чанки после retrieve
+    question: str  # исходный вопрос пользователя
+    query: str  # текущий (пере)сформулированный поисковый запрос
+    attempt: int  # номер попытки поиска (0 = первая)
+    chunks: list[Chunk]  # чанки после retrieve
     relevant: list[Chunk]  # чанки, оценённые LLM как релевантные
     answer: str
-    sources: list[str]     # уникальные source релевантных чанков
+    sources: list[str]  # уникальные source релевантных чанков
 ```
 
 - [ ] **Step 2: Тест узлов**
@@ -1139,7 +1189,10 @@ class GraphState(TypedDict):
 import json
 
 from rag_kb.graph.nodes import (
-    make_generator, make_grader, make_rewriter, retrieve_node,
+    make_generator,
+    make_grader,
+    make_rewriter,
+    retrieve_node,
 )
 from rag_kb.graph.state import GraphState
 from tests.conftest import FakeEmbedder, FakeLLM
@@ -1157,14 +1210,24 @@ class StubRetriever:
 
 def chunk(i, text):
     from rag_kb.types import Chunk
-    return Chunk(id=str(i), text=text,
-                 metadata={"source": f"f{i}.md", "chunk_index": 0, "total_chunks": 1,
-                           "doc_type": "text"})
+
+    return Chunk(
+        id=str(i),
+        text=text,
+        metadata={"source": f"f{i}.md", "chunk_index": 0, "total_chunks": 1, "doc_type": "text"},
+    )
 
 
 def base_state(**over) -> GraphState:
-    state = GraphState(question="как работает кэш?", query="как работает кэш?", attempt=0,
-                       chunks=[], relevant=[], answer="", sources=[])
+    state = GraphState(
+        question="как работает кэш?",
+        query="как работает кэш?",
+        attempt=0,
+        chunks=[],
+        relevant=[],
+        answer="",
+        sources=[],
+    )
     state.update(over)
     return state
 
@@ -1349,9 +1412,11 @@ class StubRetriever:
 
 
 def chunk(i, text):
-    return Chunk(id=str(i), text=text,
-                 metadata={"source": f"f{i}.md", "chunk_index": 0, "total_chunks": 1,
-                           "doc_type": "text"})
+    return Chunk(
+        id=str(i),
+        text=text,
+        metadata={"source": f"f{i}.md", "chunk_index": 0, "total_chunks": 1, "doc_type": "text"},
+    )
 
 
 def build(retriever, answers):
@@ -1371,8 +1436,9 @@ def test_happy_path_generate_after_good_grade():
 def test_retry_loop_broadens_query():
     r = StubRetriever()
     r.results = [chunk(0, "про кэш")]
-    graph = build(r, ['{"relevant": "no"}', "кэш redis TTL хранение",
-                      '{"relevant": "yes"}', "Ответ."])
+    graph = build(
+        r, ['{"relevant": "no"}', "кэш redis TTL хранение", '{"relevant": "yes"}', "Ответ."]
+    )
     out = graph.invoke({"question": "почему данные устаревают?"})
     assert out["answer"] == "Ответ."
     assert out["attempt"] == 2  # был повторный поиск
@@ -1381,8 +1447,17 @@ def test_retry_loop_broadens_query():
 def test_max_two_retries_then_generate_with_what_we_have():
     r = StubRetriever()
     r.results = [chunk(0, "нерелевантное")]
-    graph = build(r, ['{"relevant": "no"}', "запрос2", '{"relevant": "no"}', "запрос3",
-                      '{"relevant": "yes"}', "Спасательный ответ."])
+    graph = build(
+        r,
+        [
+            '{"relevant": "no"}',
+            "запрос2",
+            '{"relevant": "no"}',
+            "запрос3",
+            '{"relevant": "yes"}',
+            "Спасательный ответ.",
+        ],
+    )
     out = graph.invoke({"question": "q?"})
     assert out["attempt"] == 3  # 1 попытка + 2 retry
     assert out["answer"] == "Спасательный ответ."
@@ -1391,8 +1466,9 @@ def test_max_two_retries_then_generate_with_what_we_have():
 def test_nothing_relevant_anywhere():
     r = StubRetriever()
     r.results = [chunk(0, "мимо")]
-    graph = build(r, ['{"relevant": "no"}', "запрос2", '{"relevant": "no"}', "запрос3",
-                      '{"relevant": "no"}'])
+    graph = build(
+        r, ['{"relevant": "no"}', "запрос2", '{"relevant": "no"}', "запрос3", '{"relevant": "no"}']
+    )
     out = graph.invoke({"question": "q?"})
     assert "ничего релевантного" in out["answer"].lower()
     assert out["sources"] == []
@@ -1478,17 +1554,21 @@ def mcp(tmp_path):
     bm25 = BM25Store()
     retriever = HybridRetriever(vector_store, embedder, bm25, settings)
     indexer = Indexer(vector_store=vector_store, embedder=embedder, bm25=bm25, settings=settings)
-    graph = build_graph(retriever, FakeLLM(['{"relevant": "yes"}', "Лавовый дракон: урон 40-63."]),
-                        settings)
-    return create_mcp_server(indexer=indexer, retriever=retriever,
-                             graph_factory=lambda q: graph, settings=settings)
+    graph = build_graph(
+        retriever, FakeLLM(['{"relevant": "yes"}', "Лавовый дракон: урон 40-63."]), settings
+    )
+    return create_mcp_server(
+        indexer=indexer, retriever=retriever, graph_factory=lambda q: graph, settings=settings
+    )
 
 
 async def test_all_four_tools_end_to_end(mcp, tmp_path):
     docs = tmp_path / "docs"
     docs.mkdir()
-    (docs / "a.md").write_text("Лавовый Дракон — элита Кальдеры: урон 40-63, скорость 9, "
-                               "иммунитет к огню.", encoding="utf-8")
+    (docs / "a.md").write_text(
+        "Лавовый Дракон — элита Кальдеры: урон 40-63, скорость 9, иммунитет к огню.",
+        encoding="utf-8",
+    )
     async with Client(mcp) as client:
         tools = await client.list_tools()
         names = {t.name for t in tools}
@@ -1504,12 +1584,17 @@ async def test_all_four_tools_end_to_end(mcp, tmp_path):
         status1 = json.loads(await client.call_tool("index_status", {}))
         assert status1["files"] == 1 and status1["chunks"] >= 1
 
-        found = json.loads(await client.call_tool(
-            "find_relevant_docs", {"query": "статы лавового дракона", "top_k": 3}))
+        found = json.loads(
+            await client.call_tool(
+                "find_relevant_docs", {"query": "статы лавового дракона", "top_k": 3}
+            )
+        )
         assert len(found) >= 1
         assert any("a.md" in c["metadata"]["source"] for c in found)
 
-        answer = await client.call_tool("ask_question", {"question": "какие статы у лавового дракона?"})
+        answer = await client.call_tool(
+            "ask_question", {"question": "какие статы у лавового дракона?"}
+        )
         text = answer.content[0].text
         assert "40-63" in text
         assert "a.md" in text  # источники приложены
@@ -1541,8 +1626,12 @@ from rag_kb.indexing.indexer import Indexer
 from rag_kb.retrieval.hybrid import HybridRetriever
 
 
-def create_mcp_server(indexer: Indexer, retriever: HybridRetriever, graph_factory,  # graph_factory(question) -> CompiledGraph
-                      settings: Settings) -> FastMCP:
+def create_mcp_server(
+    indexer: Indexer,
+    retriever: HybridRetriever,
+    graph_factory,  # graph_factory(question) -> CompiledGraph
+    settings: Settings,
+) -> FastMCP:
     mcp = FastMCP(
         name="rag-kb",
         instructions=(
@@ -1564,9 +1653,15 @@ def create_mcp_server(indexer: Indexer, retriever: HybridRetriever, graph_factor
         Возвращает JSON: количество файлов, чанков, время и список ошибок.
         """
         report = indexer.index_folder(path, pattern)
-        return json.dumps({"files": report.files, "chunks": report.chunks,
-                           "seconds": report.seconds, "errors": report.errors},
-                          ensure_ascii=False)
+        return json.dumps(
+            {
+                "files": report.files,
+                "chunks": report.chunks,
+                "seconds": report.seconds,
+                "errors": report.errors,
+            },
+            ensure_ascii=False,
+        )
 
     @mcp.tool
     def ask_question(question: str) -> str:
@@ -1581,8 +1676,9 @@ def create_mcp_server(indexer: Indexer, retriever: HybridRetriever, graph_factor
         Возвращает ответ и список источников (файлы), из которых он составлен.
         """
         state = graph_factory(question).invoke({"question": question})
-        return json.dumps({"answer": state["answer"], "sources": state["sources"]},
-                          ensure_ascii=False)
+        return json.dumps(
+            {"answer": state["answer"], "sources": state["sources"]}, ensure_ascii=False
+        )
 
     @mcp.tool
     def find_relevant_docs(query: str, top_k: int = 5) -> str:
@@ -1608,8 +1704,14 @@ def create_mcp_server(indexer: Indexer, retriever: HybridRetriever, graph_factor
         Возвращает JSON: files, chunks, last_indexed_at.
         """
         stats = indexer.status()
-        return json.dumps({"files": stats.files, "chunks": stats.chunks,
-                           "last_indexed_at": stats.last_indexed_at}, ensure_ascii=False)
+        return json.dumps(
+            {
+                "files": stats.files,
+                "chunks": stats.chunks,
+                "last_indexed_at": stats.last_indexed_at,
+            },
+            ensure_ascii=False,
+        )
 
     return mcp
 ```
@@ -1619,6 +1721,7 @@ def create_mcp_server(indexer: Indexer, retriever: HybridRetriever, graph_factor
 ```python
 # src/rag_kb/server.py
 """Входная точка: сборка реальных зависимостей и запуск MCP-сервера."""
+
 from rag_kb.app import create_mcp_server
 from rag_kb.config import get_settings
 from rag_kb.graph.builder import build_graph
@@ -1640,7 +1743,8 @@ def main() -> None:
     indexer = Indexer(vector_store=vector_store, embedder=embedder, bm25=bm25, settings=settings)
     llm = OllamaLLM(settings.ollama_base_url, settings.llm_model)
     mcp = create_mcp_server(
-        indexer=indexer, retriever=retriever,
+        indexer=indexer,
+        retriever=retriever,
         graph_factory=lambda _q: build_graph(retriever, llm, settings),
         settings=settings,
     )
@@ -1738,11 +1842,32 @@ import pytest
 SAMPLE_DOCS = Path(__file__).parents[1] / "sample_docs"
 
 VERIFICATION_FACTS = [
-    "Трон Пепла", "Пепельные Пустоши", "Кальдера", "Исольда", "127 лет", "812 году",
-    "Лавовый Дракон", "40-63", "Обсидианный голем", "47 золота", "Пепельная завеса", "25%",
-    "Магнус Чёрный Молот", "897 году", "Битва у Трёх Кратеров", "14 октября 903",
-    "Сердце Кальдеры", "Регалии Пепла", "Пепельной войны 889-891", "Лиара Ветрокрылая",
-    "Пепельный проход", "907 году", "7 миссий", "12 408", "Ночь Обсидиана", "30 ноября",
+    "Трон Пепла",
+    "Пепельные Пустоши",
+    "Кальдера",
+    "Исольда",
+    "127 лет",
+    "812 году",
+    "Лавовый Дракон",
+    "40-63",
+    "Обсидианный голем",
+    "47 золота",
+    "Пепельная завеса",
+    "25%",
+    "Магнус Чёрный Молот",
+    "897 году",
+    "Битва у Трёх Кратеров",
+    "14 октября 903",
+    "Сердце Кальдеры",
+    "Регалии Пепла",
+    "Пепельной войны 889-891",
+    "Лиара Ветрокрылая",
+    "Пепельный проход",
+    "907 году",
+    "7 миссий",
+    "12 408",
+    "Ночь Обсидиана",
+    "30 ноября",
 ]
 
 

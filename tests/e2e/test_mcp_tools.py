@@ -23,17 +23,21 @@ def mcp(tmp_path):
     bm25 = BM25Store()
     retriever = HybridRetriever(vector_store, embedder, bm25, settings)
     indexer = Indexer(vector_store=vector_store, embedder=embedder, bm25=bm25, settings=settings)
-    graph = build_graph(retriever, FakeLLM(['{"relevant": "yes"}', "Лавовый дракон: урон 40-63."]),
-                        settings)
-    return create_mcp_server(indexer=indexer, retriever=retriever,
-                             graph_factory=lambda q: graph, settings=settings)
+    graph = build_graph(
+        retriever, FakeLLM(['{"relevant": "yes"}', "Лавовый дракон: урон 40-63."]), settings
+    )
+    return create_mcp_server(
+        indexer=indexer, retriever=retriever, graph_factory=lambda q: graph, settings=settings
+    )
 
 
 async def test_all_four_tools_end_to_end(mcp, tmp_path):
     docs = tmp_path / "docs"
     docs.mkdir()
-    (docs / "a.md").write_text("Лавовый Дракон — элита Кальдеры: урон 40-63, скорость 9, "
-                               "иммунитет к огню.", encoding="utf-8")
+    (docs / "a.md").write_text(
+        "Лавовый Дракон — элита Кальдеры: урон 40-63, скорость 9, иммунитет к огню.",
+        encoding="utf-8",
+    )
     async with Client(mcp) as client:
         tools = await client.list_tools()
         names = {t.name for t in tools}
@@ -44,20 +48,29 @@ async def test_all_four_tools_end_to_end(mcp, tmp_path):
         status0 = json.loads((await client.call_tool("index_status", {})).content[0].text)
         assert status0["files"] == 0
 
-        report = json.loads((await client.call_tool(
-            "index_folder", {"path": str(docs)})).content[0].text)
+        report = json.loads(
+            (await client.call_tool("index_folder", {"path": str(docs)})).content[0].text
+        )
         assert report["files"] == 1 and report["errors"] == []
 
         status1 = json.loads((await client.call_tool("index_status", {})).content[0].text)
         assert status1["files"] == 1 and status1["chunks"] >= 1
 
-        found = json.loads((await client.call_tool(
-            "find_relevant_docs", {"query": "статы лавового дракона", "top_k": 3})).content[0].text)
+        found = json.loads(
+            (
+                await client.call_tool(
+                    "find_relevant_docs", {"query": "статы лавового дракона", "top_k": 3}
+                )
+            )
+            .content[0]
+            .text
+        )
         assert len(found) >= 1
         assert any("a.md" in c["metadata"]["source"] for c in found)
 
-        answer = await client.call_tool("ask_question",
-                                        {"question": "какие статы у лавового дракона?"})
+        answer = await client.call_tool(
+            "ask_question", {"question": "какие статы у лавового дракона?"}
+        )
         text = answer.content[0].text
         assert "40-63" in text
         assert "a.md" in text  # источники приложены

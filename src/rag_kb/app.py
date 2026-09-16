@@ -8,8 +8,9 @@ from rag_kb.indexing.indexer import Indexer
 from rag_kb.retrieval.hybrid import HybridRetriever
 
 
-def create_mcp_server(indexer: Indexer, retriever: HybridRetriever, graph_factory,
-                      settings: Settings) -> FastMCP:
+def create_mcp_server(
+    indexer: Indexer, retriever: HybridRetriever, graph_factory, settings: Settings
+) -> FastMCP:
     mcp = FastMCP(
         name="rag-kb",
         instructions=(
@@ -31,9 +32,15 @@ def create_mcp_server(indexer: Indexer, retriever: HybridRetriever, graph_factor
         Возвращает JSON: количество файлов, чанков, время и список ошибок.
         """
         report = indexer.index_folder(path, pattern)
-        return json.dumps({"files": report.files, "chunks": report.chunks,
-                           "seconds": report.seconds, "errors": report.errors},
-                          ensure_ascii=False)
+        return json.dumps(
+            {
+                "files": report.files,
+                "chunks": report.chunks,
+                "seconds": report.seconds,
+                "errors": report.errors,
+            },
+            ensure_ascii=False,
+        )
 
     @mcp.tool
     def ask_question(question: str) -> str:
@@ -48,8 +55,9 @@ def create_mcp_server(indexer: Indexer, retriever: HybridRetriever, graph_factor
         Возвращает ответ и список источников (файлы), из которых он составлен.
         """
         state = graph_factory(question).invoke({"question": question})
-        return json.dumps({"answer": state["answer"], "sources": state["sources"]},
-                          ensure_ascii=False)
+        return json.dumps(
+            {"answer": state["answer"], "sources": state["sources"]}, ensure_ascii=False
+        )
 
     @mcp.tool
     def find_relevant_docs(query: str, top_k: int = 5) -> str:
@@ -77,7 +85,13 @@ def create_mcp_server(indexer: Indexer, retriever: HybridRetriever, graph_factor
         Возвращает JSON: files, chunks, last_indexed_at.
         """
         stats = indexer.status()
-        return json.dumps({"files": stats.files, "chunks": stats.chunks,
-                           "last_indexed_at": stats.last_indexed_at}, ensure_ascii=False)
+        return json.dumps(
+            {
+                "files": stats.files,
+                "chunks": stats.chunks,
+                "last_indexed_at": stats.last_indexed_at,
+            },
+            ensure_ascii=False,
+        )
 
     return mcp

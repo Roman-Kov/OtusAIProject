@@ -6,8 +6,9 @@ from rag_kb.retrieval.stores import VectorStore
 from rag_kb.types import Chunk
 
 
-def rrf_fuse(list_a: list[Chunk], list_b: list[Chunk], k: int = 60,
-             top_k: int | None = None) -> list[Chunk]:
+def rrf_fuse(
+    list_a: list[Chunk], list_b: list[Chunk], k: int = 60, top_k: int | None = None
+) -> list[Chunk]:
     """Reciprocal Rank Fusion: score(d) = sum 1/(k + rank_i(d))."""
     scores: dict[str, float] = {}
     chunks_by_id: dict[str, Chunk] = {}
@@ -24,8 +25,9 @@ def rrf_fuse(list_a: list[Chunk], list_b: list[Chunk], k: int = 60,
 class HybridRetriever:
     """Гибридный поиск: BM25 (точные ключевые слова) + вектор (смысл) → RRF."""
 
-    def __init__(self, vector_store: VectorStore, embedder: Embedder, bm25: BM25Store,
-                 settings: Settings) -> None:
+    def __init__(
+        self, vector_store: VectorStore, embedder: Embedder, bm25: BM25Store, settings: Settings
+    ) -> None:
         self._vector_store = vector_store
         self._embedder = embedder
         self._bm25 = bm25

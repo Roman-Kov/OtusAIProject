@@ -5,14 +5,18 @@ from rag_kb.types import Chunk
 
 def make_chunks(n=3, source="a.md"):
     return [
-        Chunk(id=f"{source}-{i}", text=f"текст номер {i}",
-              metadata={"source": source, "chunk_index": i, "total_chunks": n, "doc_type": "text"})
+        Chunk(
+            id=f"{source}-{i}",
+            text=f"текст номер {i}",
+            metadata={"source": source, "chunk_index": i, "total_chunks": n, "doc_type": "text"},
+        )
         for i in range(n)
     ]
 
 
 def make_store(tmp_path):
     from rag_kb.config import Settings
+
     return VectorStore(Settings(chroma_dir=tmp_path / "chroma", collection_name="test"))
 
 
@@ -40,10 +44,16 @@ def test_add_chunks_upserts_by_id(tmp_path):
 
 def test_add_chunks_dedups_ids_within_batch(tmp_path):
     store = make_store(tmp_path)
-    first = Chunk(id="dup", text="первая версия", metadata={"source": "a.md", "chunk_index": 0,
-                                                           "total_chunks": 2, "doc_type": "text"})
-    second = Chunk(id="dup", text="вторая версия", metadata={"source": "a.md", "chunk_index": 1,
-                                                            "total_chunks": 2, "doc_type": "text"})
+    first = Chunk(
+        id="dup",
+        text="первая версия",
+        metadata={"source": "a.md", "chunk_index": 0, "total_chunks": 2, "doc_type": "text"},
+    )
+    second = Chunk(
+        id="dup",
+        text="вторая версия",
+        metadata={"source": "a.md", "chunk_index": 1, "total_chunks": 2, "doc_type": "text"},
+    )
     store.add_chunks([first, second], [[0.0] * 4, [0.1] * 4])
     assert store.count() == 1
     assert store.all_chunks()[0].text == "вторая версия"  # last occurrence wins
@@ -51,8 +61,7 @@ def test_add_chunks_dedups_ids_within_batch(tmp_path):
 
 def test_delete_by_source(tmp_path):
     store = make_store(tmp_path)
-    store.add_chunks(make_chunks(2, source="a.md") + make_chunks(2, source="b.md"),
-                     [[0.0] * 4] * 4)
+    store.add_chunks(make_chunks(2, source="a.md") + make_chunks(2, source="b.md"), [[0.0] * 4] * 4)
     store.delete_by_source("a.md")
     assert store.count() == 2
     assert store.unique_sources() == ["b.md"]

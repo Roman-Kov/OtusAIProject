@@ -21,8 +21,7 @@ DOC_TYPE_BY_EXT = {
 def scan_folder(folder: Path, pattern: str = "**/*") -> list[Path]:
     """Найти все поддерживаемые файлы в папке по glob-паттерну."""
     return sorted(
-        p for p in folder.glob(pattern)
-        if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS
+        p for p in folder.glob(pattern) if p.is_file() and p.suffix.lower() in SUPPORTED_EXTENSIONS
     )
 
 

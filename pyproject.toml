@@ -33,6 +33,7 @@ packages = ["src/rag_kb"]
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
+extend-exclude = ["sample_docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

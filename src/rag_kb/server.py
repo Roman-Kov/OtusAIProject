@@ -1,5 +1,6 @@
 # src/rag_kb/server.py
 """Входная точка: сборка реальных зависимостей и запуск MCP-сервера."""
+
 from rag_kb.app import create_mcp_server
 from rag_kb.config import get_settings
 from rag_kb.graph.builder import build_graph
@@ -22,7 +23,8 @@ def main() -> None:
     llm = OllamaLLM(settings.ollama_base_url, settings.llm_model)
     graph = build_graph(retriever, llm, settings)
     mcp = create_mcp_server(
-        indexer=indexer, retriever=retriever,
+        indexer=indexer,
+        retriever=retriever,
         graph_factory=lambda _q: graph,
         settings=settings,
     )

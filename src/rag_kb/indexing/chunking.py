@@ -30,10 +30,16 @@ def split_document(doc: LoadedDoc, chunk_size: int = 1200, chunk_overlap: int = 
     chunks = []
     for i, text in enumerate(parts):
         chunk_id = hashlib.sha1(f"{source}:{i}".encode()).hexdigest()
-        chunks.append(Chunk(id=chunk_id, text=text, metadata={
-            "source": source,
-            "chunk_index": i,
-            "total_chunks": len(parts),
-            "doc_type": doc.doc_type,
-        }))
+        chunks.append(
+            Chunk(
+                id=chunk_id,
+                text=text,
+                metadata={
+                    "source": source,
+                    "chunk_index": i,
+                    "total_chunks": len(parts),
+                    "doc_type": doc.doc_type,
+                },
+            )
+        )
     return chunks

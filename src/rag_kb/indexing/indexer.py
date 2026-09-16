@@ -13,8 +13,9 @@ from rag_kb.types import IndexReport, IndexStats
 
 
 class Indexer:
-    def __init__(self, vector_store: VectorStore, embedder: Embedder, bm25: BM25Store,
-                 settings: Settings) -> None:
+    def __init__(
+        self, vector_store: VectorStore, embedder: Embedder, bm25: BM25Store, settings: Settings
+    ) -> None:
         self.vector_store = vector_store
         self._embedder = embedder
         self._bm25 = bm25
@@ -32,7 +33,8 @@ class Indexer:
             try:
                 doc = load_file(path)
                 chunks = split_document(
-                    doc, self._settings.chunk_size, self._settings.chunk_overlap)
+                    doc, self._settings.chunk_size, self._settings.chunk_overlap
+                )
                 embeddings = self._embedder.embed_documents([c.text for c in chunks])
                 self.vector_store.delete_by_source(str(path))
                 self.vector_store.add_chunks(chunks, embeddings)
@@ -41,8 +43,12 @@ class Indexer:
                 errors.append(f"{path}: {exc}")
         self._bm25.build(self.vector_store.all_chunks())
         self.vector_store.set_last_indexed_at(datetime.now(UTC).isoformat(timespec="seconds"))
-        return IndexReport(files=len(files) - len(errors), chunks=total_chunks,
-                           seconds=round(time.perf_counter() - started, 2), errors=errors)
+        return IndexReport(
+            files=len(files) - len(errors),
+            chunks=total_chunks,
+            seconds=round(time.perf_counter() - started, 2),
+            errors=errors,
+        )
 
     def status(self) -> IndexStats:
         return IndexStats(

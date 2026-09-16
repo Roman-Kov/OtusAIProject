@@ -23,15 +23,18 @@ def test_scan_folder_respects_pattern(tmp_path):
     assert [p.name for p in scan_folder(tmp_path, "*.md")] == ["a.md"]
 
 
-@pytest.mark.parametrize("name,text,doc_type", [
-    ("a.md", "# Заголовок", "markdown"),
-    ("b.txt", "текст", "text"),
-    ("c.py", "x = 1", "python"),
-    ("d.js", "const x = 1", "js"),
-    ("e.ts", "const x: number = 1", "ts"),
-    ("f.json", '{"k": 1}', "json"),
-    ("g.yaml", "k: v", "yaml"),
-])
+@pytest.mark.parametrize(
+    "name,text,doc_type",
+    [
+        ("a.md", "# Заголовок", "markdown"),
+        ("b.txt", "текст", "text"),
+        ("c.py", "x = 1", "python"),
+        ("d.js", "const x = 1", "js"),
+        ("e.ts", "const x: number = 1", "ts"),
+        ("f.json", '{"k": 1}', "json"),
+        ("g.yaml", "k: v", "yaml"),
+    ],
+)
 def test_load_file_supported_formats(tmp_path, name, text, doc_type):
     p = tmp_path / name
     p.write_text(text, encoding="utf-8")

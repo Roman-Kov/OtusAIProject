@@ -22,14 +22,24 @@ class StubRetriever:
 
 def chunk(i, text):
     from rag_kb.types import Chunk
-    return Chunk(id=str(i), text=text,
-                 metadata={"source": f"f{i}.md", "chunk_index": 0, "total_chunks": 1,
-                           "doc_type": "text"})
+
+    return Chunk(
+        id=str(i),
+        text=text,
+        metadata={"source": f"f{i}.md", "chunk_index": 0, "total_chunks": 1, "doc_type": "text"},
+    )
 
 
 def base_state(**over) -> GraphState:
-    state = GraphState(question="как работает кэш?", query="как работает кэш?", attempt=0,
-                       chunks=[], relevant=[], answer="", sources=[])
+    state = GraphState(
+        question="как работает кэш?",
+        query="как работает кэш?",
+        attempt=0,
+        chunks=[],
+        relevant=[],
+        answer="",
+        sources=[],
+    )
     state.update(over)
     return state
 

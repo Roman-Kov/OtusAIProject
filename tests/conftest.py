@@ -4,6 +4,7 @@ class FakeEmbedder:
 
     def _vec(self, text: str) -> list[float]:
         import hashlib
+
         digest = hashlib.sha1(text.encode()).digest()
         return [b / 255.0 for b in digest[:16]]
 

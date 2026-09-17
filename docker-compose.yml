@@ -3,6 +3,7 @@ services:
     image: ollama/ollama:latest
     volumes:
       - ollama_data:/root/.ollama
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "ollama list || exit 1"]
       interval: 5s

@@ -27,17 +27,22 @@ class Settings(BaseSettings):
     num_predict_batch_grade: int = 32  # пакетный грейдинг: список номеров релевантных
     num_predict_grade: int = 8  # поштучный грейдинг (фолбэк): yes/no
     num_predict_rewrite: int = 100  # переформулировка запроса
-    num_predict_generate: int = 600  # генерация ответа
+    num_predict_generate: int = 300  # генерация ответа (краткий ответ по сути)
 
     # Чанкинг
     chunk_size: int = 1200
     chunk_overlap: int = 200
+    grade_chunk_chars: int = 800  # сколько символов чанка уходит в промпт грейдера
 
     # Поиск и граф
     top_k: int = 6
     rrf_k: int = 60
     min_relevant_chunks: int = 1
     max_retries: int = 2
+
+    # ask_question
+    ask_wait_seconds: int = 180  # сколько ждать ответ графа до отдачи in_progress
+    ask_cache_size: int = 10  # сколько последних вопросов держать в кеше ответов
 
 
 @lru_cache

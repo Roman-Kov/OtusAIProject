@@ -4,6 +4,7 @@ import json
 
 from fastmcp import FastMCP
 
+from rag_kb.ask_runner import AskRunner
 from rag_kb.config import Settings
 from rag_kb.indexing.indexer import Indexer
 from rag_kb.retrieval.hybrid import HybridRetriever
@@ -36,6 +37,10 @@ def create_mcp_server(
         """
         return json.dumps(indexer.start_indexing(path, pattern), ensure_ascii=False)
 
+    ask_runner = AskRunner(
+        graph_factory, wait_seconds=settings.ask_wait_seconds, cache_size=settings.ask_cache_size
+    )
+
     @mcp.tool
     def ask_question(question: str) -> str:
         """Ответить на вопрос по проиндексированной базе знаний пользователя (RAG).
@@ -46,12 +51,13 @@ def create_mcp_server(
         автоматически расширяется и поиск повторяется.
         Вызывайте для любых вопросов о содержимом документов пользователя:
         «что написано про X», «как работает Y», «где используется Z».
-        Возвращает ответ и список источников (файлы), из которых он составлен.
+        Локальная модель на CPU может думать минуты: если ответ не успел
+        подготовиться, вернётся status="in_progress" — повторите вызов с тем же
+        вопросом, и готовый ответ вернётся мгновенно.
+        Возвращает JSON: status ("done" | "in_progress" | "error"), answer
+        (текст ответа) и sources (список файлов-источников).
         """
-        state = graph_factory(question).invoke({"question": question})
-        return json.dumps(
-            {"answer": state["answer"], "sources": state["sources"]}, ensure_ascii=False
-        )
+        return json.dumps(ask_runner.ask(question), ensure_ascii=False)
 
     @mcp.tool
     def find_relevant_docs(query: str, top_k: int = 5) -> str:

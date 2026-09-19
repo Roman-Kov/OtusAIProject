@@ -193,6 +193,16 @@ def test_grader_fallback_accepts_russian_da():
     assert [c.id for c in out["relevant"]] == ["0"]
 
 
+def test_grader_truncates_chunks_by_setting():
+    llm = FakeLLM(["1"])
+    s = Settings(grade_chunk_chars=50)
+    node = make_grader(llm, s)
+    node(base_state(chunks=[chunk(0, "а" * 500)]))
+    prompt = llm.prompts[0]
+    assert "а" * 50 in prompt  # вошли первые 50 символов
+    assert "а" * 51 not in prompt  # длиннее настройки — нет
+
+
 def test_generator_answer_and_sources():
     llm = FakeLLM(["Кэш работает так-то."])
     node = make_generator(llm, SETTINGS)

@@ -1,15 +1,36 @@
 # src/rag_kb/server.py
 """Входная точка: сборка реальных зависимостей и запуск MCP-сервера."""
 
+import threading
+
 from rag_kb.app import create_mcp_server
-from rag_kb.config import get_settings
+from rag_kb.config import Settings, get_settings
 from rag_kb.graph.builder import build_graph
 from rag_kb.indexing.embedder import create_embedder
 from rag_kb.indexing.indexer import Indexer
-from rag_kb.llm import OllamaLLM
+from rag_kb.llm import LLM, OllamaLLM
 from rag_kb.retrieval.bm25_store import BM25Store
 from rag_kb.retrieval.hybrid import HybridRetriever
 from rag_kb.retrieval.stores import VectorStore
+
+
+def start_warmup(llm: LLM, embedder, settings: Settings) -> None:
+    """Фоновый прогрев моделей Ollama сразу после старта сервера.
+
+    Без прогона первый вопрос платит полную загрузку LLM из диска (на CPU — минуты)
+    и не влезает в таймауты MCP-клиентов. Прогрев стартует параллельно с подъёмом
+    сервера и ничего не блокирует; при недоступной Ollama тихо пропускается.
+    """
+
+    def _warm() -> None:
+        try:
+            embedder.embed_query("прогрев")
+            llm.invoke("Прогрев. Ответь одним словом: ok", num_predict=2)
+            print("warmup: модели Ollama загружены", flush=True)
+        except Exception as exc:  # noqa: BLE001 — прогрев не должен ронять сервер
+            print(f"warmup: пропущен ({exc})", flush=True)
+
+    threading.Thread(target=_warm, daemon=True, name="ollama-warmup").start()
 
 
 def main() -> None:
@@ -24,6 +45,7 @@ def main() -> None:
         settings.ollama_base_url, settings.llm_model, keep_alive=settings.ollama_keep_alive_sec
     )
     graph = build_graph(retriever, llm, settings)
+    start_warmup(llm, embedder, settings)
     mcp = create_mcp_server(
         indexer=indexer,
         retriever=retriever,

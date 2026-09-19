@@ -28,7 +28,8 @@ BATCH_GRADE_PROMPT = (
 
 GENERATE_PROMPT = (
     "Ты — помощник по внутренней базе знаний. Ответь на вопрос пользователя, опираясь ТОЛЬКО "
-    "на приведённые фрагменты. Не выдумывай. Если фрагменты не содержат ответа — так и скажи.\n\n"
+    "на приведённые фрагменты. Не выдумывай. Если фрагменты не содержат ответа — так и скажи. "
+    "Отвечай кратко, в 2-3 предложения, только самое существенное.\n\n"
     "Вопрос: {question}\n\nФрагменты:\n{context}"
 )
 
@@ -37,8 +38,6 @@ NOT_FOUND_ANSWER = (
     "(включая повторные запросы с расширенной формулировкой). "
     "Попробуйте переформулировать вопрос или проиндексировать дополнительные папки."
 )
-
-GRADE_CHUNK_CHARS = 1500  # сколько символов чанка уходит в промпт грейдера
 
 _BATCH_NONE = re.compile(r"\b(none|нет|никакие|ни один)\b", re.IGNORECASE)
 
@@ -97,7 +96,9 @@ def make_grader(llm: LLM, settings: Settings):
         relevant: list[Chunk] = []
         for chunk in chunks:
             raw = llm.invoke(
-                GRADE_PROMPT.format(question=question, chunk=chunk.text[:GRADE_CHUNK_CHARS]),
+                GRADE_PROMPT.format(
+                    question=question, chunk=chunk.text[: settings.grade_chunk_chars]
+                ),
                 num_predict=settings.num_predict_grade,
             )
             if _parse_relevant(raw):
@@ -109,7 +110,7 @@ def make_grader(llm: LLM, settings: Settings):
         if not chunks:
             return {"relevant": []}
         fragments = "\n\n".join(
-            f"[{i}]\n{c.text[:GRADE_CHUNK_CHARS]}" for i, c in enumerate(chunks, start=1)
+            f"[{i}]\n{c.text[: settings.grade_chunk_chars]}" for i, c in enumerate(chunks, start=1)
         )
         raw = llm.invoke(
             BATCH_GRADE_PROMPT.format(question=state["question"], fragments=fragments),

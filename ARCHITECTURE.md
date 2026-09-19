@@ -50,7 +50,7 @@ flowchart LR
 - `src/rag_kb/server.py` — входная точка (`python -m rag_kb.server`): сборка реальных зависимостей (Settings, VectorStore, embedder, BM25Store, HybridRetriever с `rebuild_bm25()` после рестарта, Indexer, OllamaLLM, `build_graph`) и `mcp.run(transport="streamable-http")`.
 - `src/rag_kb/config.py` — `Settings` (pydantic-settings, префикс `RAGKB_`, `get_settings` под `lru_cache`).
 - `src/rag_kb/types.py` — датаклассы `LoadedDoc`, `Chunk`, `IndexReport`, `IndexStats`.
-- `src/rag_kb/llm.py` — протокол `LLM` (`invoke(prompt, json_mode)`) и `OllamaLLM`: два экземпляра `ChatOllama` — plain для текста, `format="json"` для грейдинга.
+- `src/rag_kb/llm.py` — протокол `LLM` (`invoke(prompt, num_predict)`) и `OllamaLLM`: экземпляры `ChatOllama` кэшируются по `num_predict`; `keep_alive` удерживает модель в RAM Ollama между вызовами.
 - `src/rag_kb/indexing/loaders.py` — `scan_folder` (glob-паттерн + фильтр по поддерживаемым расширениям) и `load_file` (TextLoader из LangChain, UTF-8).
 - `src/rag_kb/indexing/chunking.py` — `split_document`: `RecursiveCharacterTextSplitter`; для python/js/ts/markdown — сплиттер «из языка» (границы функций/классов/заголовков), для остальных — обычный; id чанка — `sha1(source:chunk_index)`.
 - `src/rag_kb/indexing/embedder.py` — протокол `Embedder`; реализации `ChromaDefaultEmbedder` (ONNX all-MiniLM-L6-v2, входит в chromadb) и `OllamaEmbedder` (nomic-embed-text); выбор через `create_embedder(settings)`.
@@ -59,7 +59,7 @@ flowchart LR
 - `src/rag_kb/retrieval/bm25_store.py` — `BM25Store` на `BM25Okapi`; токенизация `re.findall(r"\w+", text.lower())`; in-memory, пересобирается из ChromaDB.
 - `src/rag_kb/retrieval/hybrid.py` — `rrf_fuse(...)` и `HybridRetriever.search`: BM25-топ + векторный топ, слияние RRF.
 - `src/rag_kb/graph/state.py` — `GraphState` (TypedDict).
-- `src/rag_kb/graph/nodes.py` — промпты (`REWRITE_PROMPT`, `GRADE_PROMPT`, `GENERATE_PROMPT`, `NOT_FOUND_ANSWER`), фабрики узлов и парсер ответа грейдера `_parse_relevant`.
+- `src/rag_kb/graph/nodes.py` — промпты (`REWRITE_PROMPT`, `BATCH_GRADE_PROMPT`, `GRADE_PROMPT`, `GENERATE_PROMPT`, `NOT_FOUND_ANSWER`), фабрики узлов и парсеры ответа грейдера (`_parse_relevant_numbers` — пакетный, `_parse_relevant` — поштучный фолбэк).
 - `src/rag_kb/graph/builder.py` — сборка `StateGraph` и условное ребро после `grade`.
 
 ## Потоки данных
@@ -81,7 +81,7 @@ flowchart LR
 
 1. `rewrite` — первая попытка: `query = question`; при повторных — LLM переформулирует и расширяет запрос (синонимы, связанные термины).
 2. `retrieve` — `HybridRetriever.search(query)` (top_k=6); `attempt += 1` (инкремент только здесь).
-3. `grade` — LLM оценивает каждый чанк (первые 1500 символов) на релевантность вопросу; собирается `relevant`.
+3. `grade` — один пакетный вызов LLM: все top-k фрагментов пронумерованы и усечены до 1500 символов, модель перечисляет номера релевантных (`_parse_relevant_numbers`); если ответ не распарсился — поштучный грейдинг как фолбэк (`GRADE_PROMPT` + `_parse_relevant`). Собирается `relevant`.
 4. Маршрутизатор: релевантных достаточно — `generate`; нет и попытки не исчерпаны — назад в `rewrite`; иначе `generate` с пустым `relevant`.
 5. `generate` — ответ строго по релевантным фрагментам («не выдумывай; если ответа нет — так и скажи»); `sources` — уникальные `source` релевантных чанков. При пустом `relevant` — фиксированный `NOT_FOUND_ANSWER` и пустые источники.
 
@@ -139,7 +139,9 @@ flowchart TD
 
 - **ChromaDB — единственный источник правды.** Персистентная коллекция переживает рестарты; BM25 живёт в памяти и перестраивается из ChromaDB целиком — после индексации (`indexer.py`, шаг 7 схемы выше) и при старте сервера (`server.py` → `retriever.rebuild_bm25()`). Цена: на больших индексах полный rebuild дороже инкрементального обновления; выгода: in-memory копия не может разойтись с хранилищем.
 - **Эмбеддинги считаются снаружи и передаются в коллекцию.** `VectorStore.add_chunks(chunks, embeddings)` принимает готовые векторы, а коллекция создаётся без собственной embedding-функции. Поэтому провайдер эмбеддингов — `chromadb` (ONNX MiniLM, работает без Ollama) или `ollama` (`nomic-embed-text`) — переключается одной переменной `RAGKB_EMBEDDING_PROVIDER`, и `VectorStore` вообще не знает о модели.
-- **Грейдер под маленькую модель.** Порядок частей промпта критичен для 3B-модели: фрагмент текста — в начале, вопрос — в конце, ближе к точке ответа; так `qwen2.5:3b` надёжно сопоставляет их (при обратном порядке модель ошибочно отклоняла заведомо релевантные фрагменты — см. REPORT.md, п. 13). Промпт выбирали из 7 опробованных вариантов; финальная формулировка прошла проверку 20/20. Парсер `_parse_relevant` терпим к формату: JSON `{"relevant": ...}` (bool либо строка, начинающаяся с `y`/`д`), а вне JSON — регистронезависимое отдельное слово `yes`.
+- **Грейдер под маленькую модель.** Порядок частей промпта критичен для 3B-модели: фрагмент текста — в начале, вопрос — в конце, ближе к точке ответа; так `qwen2.5:3b` надёжно сопоставляет их (при обратном порядке модель ошибочно отклоняла заведомо релевантные фрагменты — см. REPORT.md, п. 13). Промпт выбирали из 7 опробованных вариантов; финальная формулировка прошла проверку 20/20. Тот же принцип сохранён в пакетном промпте: пронумерованные фрагменты — в начале, вопрос и инструкция — в конце. Парсер `_parse_relevant` терпим к формату: JSON `{"relevant": ...}` (bool либо строка, начинающаяся с `y`/`д`), а вне JSON — регистронезависимое отдельное слово `yes`.
+- **Пакетный грейдинг вместо поштучного.** Все top-k фрагментов оцениваются одним вызовом LLM («перечисли номера релевантных»), а не top-k отдельными вызовами: на CPU это сокращает самую долгую часть `ask_question` в разы и убирает её умножение в retry-циклах. Парсер `_parse_relevant_numbers` строг к противоречиям: ответ «нет» вместе с номерами (например, «ни один из 6 не релевантен») считается нераспознанным и уходит в поштучный фолбэк, а не трактуется наугад. Компромисс: один длинный промпт вместо нескольких коротких — чуть больше токенов на префилл; выгода: 1 вызов LLM вместо 6 на каждый проход графа.
+- **Ускорение холодного старта и генерации.** `ollama_keep_alive_sec=2592000` (RAGKB_OLLAMA_KEEP_ALIVE_SEC, 30 суток; действует и на LLM, и на эмбеддинг-модель) не даёт Ollama выгружать модели из RAM после простоя — без этого первый вопрос после 5 минут тишины платит полную загрузку модели (замер: минуты; значение в секундах, потому что строковые duration Ollama парсит строго и отвергает голое `-1`). Лимиты `num_predict` подобраны по типу вызова (грейдинг — 8/32, rewrite — 100, генерация — 600 токенов): модель не «разгоняется» в длинные рассуждения там, где нужен короткий ответ.
 - **Метрика L2 в ChromaDB.** Оба эмбеддера выдают нормализованные векторы, а при `|x| = |y| = 1` упорядочение по евклидову расстоянию совпадает с упорядочением по косинусной близости — то есть на деле ранжирование косинусное, без специальной настройки пространства.
 - **Изоляция ошибок индексации.** Каждый файл обрабатывается в своём `try/except`: один битый файл не рушит индексацию, а попадает в `errors` отчёта (и уменьшает счётчик `files`).
 - **Фоновая индексация вместо синхронного вызова.** `index_folder` запускает конвейер в daemon-потоке (`Indexer.start_indexing`: флаг под `threading.Lock`, повторный вызов возвращает `already_running`) и отвечает мгновенно, а прогресс и итог отдаются через `index_status` (`indexing_in_progress`, `progress`, `last_report`). Компромисс: клиент должен поллить статус вместо одного блокирующего вызова; выгода: индексация на CPU не упирается в клиентские таймауты MCP (~60 с) и не теряется при обрыве соединения.
@@ -157,6 +159,11 @@ flowchart TD
 | `collection_name` | `RAGKB_COLLECTION_NAME` | `documents` | Имя коллекции ChromaDB |
 | `ollama_base_url` | `RAGKB_OLLAMA_BASE_URL` | `http://localhost:11434` | Адрес Ollama |
 | `llm_model` | `RAGKB_LLM_MODEL` | `qwen2.5:3b` | Модель LLM |
+| `ollama_keep_alive_sec` | `RAGKB_OLLAMA_KEEP_ALIVE_SEC` | `2592000` | Удержание моделей (LLM и эмбеддингов) в RAM Ollama, сек; 30 суток |
+| `num_predict_batch_grade` | `RAGKB_NUM_PREDICT_BATCH_GRADE` | `32` | Лимит токенов: пакетный грейдинг |
+| `num_predict_grade` | `RAGKB_NUM_PREDICT_GRADE` | `8` | Лимит токенов: поштучный грейдинг (фолбэк) |
+| `num_predict_rewrite` | `RAGKB_NUM_PREDICT_REWRITE` | `100` | Лимит токенов: переформулировка запроса |
+| `num_predict_generate` | `RAGKB_NUM_PREDICT_GENERATE` | `600` | Лимит токенов: генерация ответа |
 | `embedding_provider` | `RAGKB_EMBEDDING_PROVIDER` | `chromadb` | Провайдер эмбеддингов: `chromadb` \| `ollama` |
 | `ollama_embedding_model` | `RAGKB_OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text` | Модель эмбеддингов Ollama |
 | `chunk_size` | `RAGKB_CHUNK_SIZE` | `1200` | Размер чанка, символов |
@@ -181,7 +188,7 @@ flowchart TD
 
 ## Тесты
 
-Структура (`tests/`, всего 83 теста, сеть не нужна):
+Структура (`tests/`, всего 94 теста, сеть не нужна):
 
 - `tests/conftest.py` — `FakeLLM` (программируемая очередь ответов с записью всех промптов) и `FakeEmbedder` (детерминированные векторы из sha1 хэша текста).
 - `tests/unit/` — узлы графа и сборка (`test_nodes.py`, `test_builder.py`), RRF (`test_rrf.py`), BM25 (`test_bm25.py`), чанкинг, загрузчики, индексер, сторы, эмбеддер, конфиг, типы.

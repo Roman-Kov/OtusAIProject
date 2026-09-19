@@ -28,8 +28,8 @@ class ChromaDefaultEmbedder:
 class OllamaEmbedder:
     """Внешние эмбеддинги через Ollama (например, nomic-embed-text)."""
 
-    def __init__(self, base_url: str, model: str) -> None:
-        self._client = OllamaEmbeddings(base_url=base_url, model=model)
+    def __init__(self, base_url: str, model: str, keep_alive: int) -> None:
+        self._client = OllamaEmbeddings(base_url=base_url, model=model, keep_alive=keep_alive)
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return self._client.embed_documents(texts)
@@ -42,5 +42,9 @@ def create_embedder(settings: Settings) -> Embedder:
     if settings.embedding_provider == "chromadb":
         return ChromaDefaultEmbedder()
     if settings.embedding_provider == "ollama":
-        return OllamaEmbedder(settings.ollama_base_url, settings.ollama_embedding_model)
+        return OllamaEmbedder(
+            settings.ollama_base_url,
+            settings.ollama_embedding_model,
+            keep_alive=settings.ollama_keep_alive_sec,
+        )
     raise ValueError(f"Unknown embedding_provider: {settings.embedding_provider}")

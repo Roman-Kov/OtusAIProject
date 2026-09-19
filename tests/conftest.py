@@ -1,4 +1,7 @@
 # tests/conftest.py
+from typing import NamedTuple
+
+
 class FakeEmbedder:
     """Детерминированные эмбеддинги без сети: вектор из хэша текста."""
 
@@ -15,13 +18,20 @@ class FakeEmbedder:
         return self._vec(text)
 
 
+class LLMCall(NamedTuple):
+    prompt: str
+    num_predict: int | None
+
+
 class FakeLLM:
     """Программируемая LLM для тестов графа: pop ответов по очереди, запись промптов."""
 
     def __init__(self, answers: list[str]) -> None:
         self.answers = list(answers)
         self.prompts: list[str] = []
+        self.calls: list[LLMCall] = []
 
-    def invoke(self, prompt: str, json_mode: bool = False) -> str:
+    def invoke(self, prompt: str, num_predict: int | None = None) -> str:
         self.prompts.append(prompt)
+        self.calls.append(LLMCall(prompt, num_predict))
         return self.answers.pop(0)

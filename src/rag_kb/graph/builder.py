@@ -16,10 +16,10 @@ def _route_after_grade(state: GraphState, settings: Settings) -> str:
 
 def build_graph(retriever, llm, settings: Settings):
     graph = StateGraph(GraphState)
-    graph.add_node("rewrite", make_rewriter(llm))
+    graph.add_node("rewrite", make_rewriter(llm, settings))
     graph.add_node("retrieve", retrieve_node(retriever))
-    graph.add_node("grade", make_grader(llm))
-    graph.add_node("generate", make_generator(llm))
+    graph.add_node("grade", make_grader(llm, settings))
+    graph.add_node("generate", make_generator(llm, settings))
     graph.add_edge(START, "rewrite")
     graph.add_edge("rewrite", "retrieve")
     graph.add_edge("retrieve", "grade")

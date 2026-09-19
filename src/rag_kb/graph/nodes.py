@@ -2,6 +2,7 @@
 import json
 import re
 
+from rag_kb.config import Settings
 from rag_kb.graph.state import GraphState
 from rag_kb.llm import LLM
 from rag_kb.types import Chunk
@@ -18,6 +19,13 @@ GRADE_PROMPT = (
     "Содержит ли фрагмент информацию для ответа на вопрос? Ответь одним словом: yes или no."
 )
 
+BATCH_GRADE_PROMPT = (
+    "Фрагменты:\n{fragments}\n\nВопрос: {question}\n\n"
+    "Какие из фрагментов содержат информацию для ответа на вопрос? "
+    "Перечисли номера релевантных фрагментов (например: 1, 3). "
+    "Если релевантных нет — напиши: none."
+)
+
 GENERATE_PROMPT = (
     "Ты — помощник по внутренней базе знаний. Ответь на вопрос пользователя, опираясь ТОЛЬКО "
     "на приведённые фрагменты. Не выдумывай. Если фрагменты не содержат ответа — так и скажи.\n\n"
@@ -30,12 +38,19 @@ NOT_FOUND_ANSWER = (
     "Попробуйте переформулировать вопрос или проиндексировать дополнительные папки."
 )
 
+GRADE_CHUNK_CHARS = 1500  # сколько символов чанка уходит в промпт грейдера
 
-def make_rewriter(llm: LLM):
+_BATCH_NONE = re.compile(r"\b(none|нет|никакие|ни один)\b", re.IGNORECASE)
+
+
+def make_rewriter(llm: LLM, settings: Settings):
     def rewrite(state: GraphState) -> dict:
         if state.get("attempt", 0) == 0:
             return {"query": state["question"].strip()}
-        query = llm.invoke(REWRITE_PROMPT.format(question=state["question"], query=state["query"]))
+        query = llm.invoke(
+            REWRITE_PROMPT.format(question=state["question"], query=state["query"]),
+            num_predict=settings.num_predict_rewrite,
+        )
         return {"query": query.strip()}
 
     return rewrite
@@ -61,28 +76,64 @@ def _parse_relevant(raw: str) -> bool:
     return str(value).strip().lower().startswith(("y", "д"))
 
 
-def make_grader(llm: LLM):
-    def grade(state: GraphState) -> dict:
+def _parse_relevant_numbers(raw: str, count: int) -> list[int] | None:
+    """Номера (1-based) релевантных фрагментов из ответа LLM; None — ответ не распарсился.
+
+    Противоречивый ответ («нет» вместе с номерами, «ни один из 6») считается
+    нераспознанным и уходит в поштучный фолбэк, а не трактуется наугад.
+    """
+    none_hit = bool(_BATCH_NONE.search(raw))
+    numbers = sorted({n for n in (int(d) for d in re.findall(r"\d+", raw)) if 1 <= n <= count})
+    if numbers and none_hit:
+        return None
+    if none_hit:
+        return []
+    return numbers or None
+
+
+def make_grader(llm: LLM, settings: Settings):
+    def _grade_each(chunks: list[Chunk], question: str) -> list[Chunk]:
+        """Фолбэк: поштучный грейдинг, как до пакетного режима."""
         relevant: list[Chunk] = []
-        for chunk in state["chunks"]:
+        for chunk in chunks:
             raw = llm.invoke(
-                GRADE_PROMPT.format(question=state["question"], chunk=chunk.text[:1500])
+                GRADE_PROMPT.format(question=question, chunk=chunk.text[:GRADE_CHUNK_CHARS]),
+                num_predict=settings.num_predict_grade,
             )
             if _parse_relevant(raw):
                 relevant.append(chunk)
-        return {"relevant": relevant}
+        return relevant
+
+    def grade(state: GraphState) -> dict:
+        chunks: list[Chunk] = state["chunks"]
+        if not chunks:
+            return {"relevant": []}
+        fragments = "\n\n".join(
+            f"[{i}]\n{c.text[:GRADE_CHUNK_CHARS]}" for i, c in enumerate(chunks, start=1)
+        )
+        raw = llm.invoke(
+            BATCH_GRADE_PROMPT.format(question=state["question"], fragments=fragments),
+            num_predict=settings.num_predict_batch_grade,
+        )
+        numbers = _parse_relevant_numbers(raw, len(chunks))
+        if numbers is None:
+            return {"relevant": _grade_each(chunks, state["question"])}
+        return {"relevant": [chunks[n - 1] for n in numbers]}
 
     return grade
 
 
-def make_generator(llm: LLM):
+def make_generator(llm: LLM, settings: Settings):
     def generate(state: GraphState) -> dict:
         if not state["relevant"]:
             return {"answer": NOT_FOUND_ANSWER, "sources": []}
         context = "\n\n---\n\n".join(
             f"[{c.metadata['source']}]\n{c.text}" for c in state["relevant"]
         )
-        answer = llm.invoke(GENERATE_PROMPT.format(question=state["question"], context=context))
+        answer = llm.invoke(
+            GENERATE_PROMPT.format(question=state["question"], context=context),
+            num_predict=settings.num_predict_generate,
+        )
         sources = sorted({c.metadata["source"] for c in state["relevant"]})
         return {"answer": answer.strip(), "sources": sources}
 

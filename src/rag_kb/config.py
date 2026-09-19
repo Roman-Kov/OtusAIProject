@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     llm_model: str = "qwen2.5:3b"
     embedding_provider: str = "chromadb"  # "chromadb" | "ollama"
     ollama_embedding_model: str = "nomic-embed-text"
+    ollama_keep_alive_sec: int = 2_592_000  # удержание моделей в RAM Ollama, сек; 30 суток
+
+    # Лимиты генерации (num_predict, токены)
+    num_predict_batch_grade: int = 32  # пакетный грейдинг: список номеров релевантных
+    num_predict_grade: int = 8  # поштучный грейдинг (фолбэк): yes/no
+    num_predict_rewrite: int = 100  # переформулировка запроса
+    num_predict_generate: int = 600  # генерация ответа
 
     # Чанкинг
     chunk_size: int = 1200

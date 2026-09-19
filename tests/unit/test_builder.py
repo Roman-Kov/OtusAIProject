@@ -30,7 +30,7 @@ def build(retriever, answers):
 def test_happy_path_generate_after_good_grade():
     r = StubRetriever()
     r.results = [chunk(0, "про кэш")]
-    graph = build(r, ['{"relevant": "yes"}', "Кэш работает через Redis."])
+    graph = build(r, ["1", "Кэш работает через Redis."])
     out = graph.invoke({"question": "как работает кэш?"})
     assert out["answer"] == "Кэш работает через Redis."
     assert out["sources"] == ["f0.md"]
@@ -40,9 +40,7 @@ def test_happy_path_generate_after_good_grade():
 def test_retry_loop_broadens_query():
     r = StubRetriever()
     r.results = [chunk(0, "про кэш")]
-    graph = build(
-        r, ['{"relevant": "no"}', "кэш redis TTL хранение", '{"relevant": "yes"}', "Ответ."]
-    )
+    graph = build(r, ["none", "кэш redis TTL хранение", "1", "Ответ."])
     out = graph.invoke({"question": "почему данные устаревают?"})
     assert out["answer"] == "Ответ."
     assert out["attempt"] == 2  # был повторный поиск
@@ -54,14 +52,7 @@ def test_max_two_retries_then_generate_with_what_we_have():
     r.results = [chunk(0, "нерелевантное")]
     graph = build(
         r,
-        [
-            '{"relevant": "no"}',
-            "запрос2",
-            '{"relevant": "no"}',
-            "запрос3",
-            '{"relevant": "yes"}',
-            "Спасательный ответ.",
-        ],
+        ["none", "запрос2", "none", "запрос3", "1", "Спасательный ответ."],
     )
     out = graph.invoke({"question": "q?"})
     assert out["attempt"] == 3  # 1 попытка + 2 retry
@@ -71,9 +62,7 @@ def test_max_two_retries_then_generate_with_what_we_have():
 def test_nothing_relevant_anywhere():
     r = StubRetriever()
     r.results = [chunk(0, "мимо")]
-    graph = build(
-        r, ['{"relevant": "no"}', "запрос2", '{"relevant": "no"}', "запрос3", '{"relevant": "no"}']
-    )
+    graph = build(r, ["none", "запрос2", "none", "запрос3", "none"])
     out = graph.invoke({"question": "q?"})
     assert "ничего не найдено" in out["answer"].lower()
     assert out["sources"] == []

@@ -32,13 +32,14 @@ class Settings(BaseSettings):
     # Чанкинг
     chunk_size: int = 1200
     chunk_overlap: int = 200
-    grade_chunk_chars: int = 800  # сколько символов чанка уходит в промпт грейдера
+    grade_chunk_chars: int = 1200  # символ чанка в промпте грейдера (чанки ~1200: без усечения)
 
     # Поиск и граф
-    top_k: int = 6
+    top_k: int = 10
     rrf_k: int = 60
     min_relevant_chunks: int = 1
     max_retries: int = 2
+    grade_mode: str = "per_chunk"  # грейдинг: "per_chunk" (строже, надёжнее) | "batch" (быстрее)
 
     # ask_question
     ask_wait_seconds: int = 180  # сколько ждать ответ графа до отдачи in_progress

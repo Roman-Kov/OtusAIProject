@@ -15,10 +15,13 @@ class OllamaLLM:
     старта после простоя.
     """
 
-    def __init__(self, base_url: str, model: str, keep_alive: int) -> None:
+    def __init__(
+        self, base_url: str, model: str, keep_alive: int, temperature: float = 0.0
+    ) -> None:
         self._base_url = base_url
         self._model = model
         self._keep_alive = keep_alive
+        self._temperature = temperature
         self._clients: dict[int | None, ChatOllama] = {}
 
     def _client(self, num_predict: int | None) -> ChatOllama:
@@ -28,6 +31,7 @@ class OllamaLLM:
                 model=self._model,
                 keep_alive=self._keep_alive,
                 num_predict=num_predict,
+                temperature=self._temperature,
             )
         return self._clients[num_predict]
 

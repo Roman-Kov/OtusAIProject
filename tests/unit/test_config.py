@@ -6,7 +6,7 @@ def test_defaults():
     s = Settings()
     assert s.llm_model == "qwen2.5:3b"
     assert s.embedding_provider == "chromadb"
-    assert s.top_k == 6
+    assert s.top_k == 10
     assert s.min_relevant_chunks == 1
     assert s.max_retries == 2
 

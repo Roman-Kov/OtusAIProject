@@ -40,7 +40,9 @@ def mcp(tmp_path):
     bm25 = BM25Store()
     retriever = HybridRetriever(vector_store, embedder, bm25, settings)
     indexer = Indexer(vector_store=vector_store, embedder=embedder, bm25=bm25, settings=settings)
-    graph = build_graph(retriever, FakeLLM(["1", "Лавовый дракон: урон 40-63."]), settings)
+    graph = build_graph(
+        retriever, FakeLLM(['{"relevant": "yes"}', "Лавовый дракон: урон 40-63."]), settings
+    )
     return create_mcp_server(
         indexer=indexer, retriever=retriever, graph_factory=lambda q: graph, settings=settings
     )

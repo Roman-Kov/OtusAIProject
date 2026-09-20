@@ -5,9 +5,13 @@ from rank_bm25 import BM25Okapi
 
 from rag_kb.types import Chunk
 
+_STEM_CHARS = 5  # префиксный стемминг: «открыл»/«открыла»/«открытый» → «откры»
+
 
 def _tokenize(text: str) -> list[str]:
-    return re.findall(r"\w+", text.lower())
+    return [
+        t[:_STEM_CHARS] if len(t) > _STEM_CHARS else t for t in re.findall(r"\w+", text.lower())
+    ]
 
 
 class BM25Store:

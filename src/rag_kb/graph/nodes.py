@@ -29,7 +29,8 @@ BATCH_GRADE_PROMPT = (
 GENERATE_PROMPT = (
     "Ты — помощник по внутренней базе знаний. Ответь на вопрос пользователя, опираясь ТОЛЬКО "
     "на приведённые фрагменты. Не выдумывай. Если фрагменты не содержат ответа — так и скажи. "
-    "Отвечай кратко, в 2-3 предложения, только самое существенное.\n\n"
+    "Отвечай кратко, в 2-4 предложения, но точные числа, даты, имена и названия переписывай "
+    "из фрагментов дословно — не округляй и не заменяй их.\n\n"
     "Вопрос: {question}\n\nФрагменты:\n{context}"
 )
 
@@ -92,7 +93,7 @@ def _parse_relevant_numbers(raw: str, count: int) -> list[int] | None:
 
 def make_grader(llm: LLM, settings: Settings):
     def _grade_each(chunks: list[Chunk], question: str) -> list[Chunk]:
-        """Фолбэк: поштучный грейдинг, как до пакетного режима."""
+        """Поштучный грейдинг: строже пакетного, при пустом результате запускает retry-цикл."""
         relevant: list[Chunk] = []
         for chunk in chunks:
             raw = llm.invoke(
@@ -105,21 +106,27 @@ def make_grader(llm: LLM, settings: Settings):
                 relevant.append(chunk)
         return relevant
 
-    def grade(state: GraphState) -> dict:
-        chunks: list[Chunk] = state["chunks"]
-        if not chunks:
-            return {"relevant": []}
+    def _grade_batch(chunks: list[Chunk], question: str) -> list[Chunk]:
+        """Пакетный грейдинг: один вызов LLM на все чанки (быстрее, но оптимистичнее)."""
         fragments = "\n\n".join(
             f"[{i}]\n{c.text[: settings.grade_chunk_chars]}" for i, c in enumerate(chunks, start=1)
         )
         raw = llm.invoke(
-            BATCH_GRADE_PROMPT.format(question=state["question"], fragments=fragments),
+            BATCH_GRADE_PROMPT.format(question=question, fragments=fragments),
             num_predict=settings.num_predict_batch_grade,
         )
         numbers = _parse_relevant_numbers(raw, len(chunks))
         if numbers is None:
-            return {"relevant": _grade_each(chunks, state["question"])}
-        return {"relevant": [chunks[n - 1] for n in numbers]}
+            return _grade_each(chunks, question)
+        return [chunks[n - 1] for n in numbers]
+
+    def grade(state: GraphState) -> dict:
+        chunks: list[Chunk] = state["chunks"]
+        if not chunks:
+            return {"relevant": []}
+        if settings.grade_mode == "batch":
+            return {"relevant": _grade_batch(chunks, state["question"])}
+        return {"relevant": _grade_each(chunks, state["question"])}
 
     return grade
 

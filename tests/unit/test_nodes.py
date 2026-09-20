@@ -11,10 +11,7 @@ from rag_kb.graph.state import GraphState
 from tests.conftest import FakeEmbedder, FakeLLM  # noqa: F401  (FakeEmbedder для консистентности)
 
 SETTINGS = Settings()
-
-# Ответ пакетного грейдера, который гарантированно не парсится как список номеров,
-# чтобы переключить узел на поштучный фолбэк.
-UNPARSEABLE = "не понимаю вопрос"
+BATCH = Settings(grade_mode="batch")
 
 
 class StubRetriever:
@@ -75,9 +72,63 @@ def test_retrieve_node_calls_retriever_and_counts_attempt():
     assert out["attempt"] == 1
 
 
+def test_grader_parses_yes_no():
+    llm = FakeLLM(['{"relevant": "yes"}', '{"relevant": "no"}'])
+    node = make_grader(llm, SETTINGS)
+    out = node(base_state(chunks=[chunk(0, "про кэш"), chunk(1, "про логи")]))
+    assert [c.id for c in out["relevant"]] == ["0"]
+    assert llm.calls[0].num_predict == SETTINGS.num_predict_grade
+
+
+def test_grader_tolerates_broken_json():
+    llm = FakeLLM(["relevant: yes точно", "no"])
+    node = make_grader(llm, SETTINGS)
+    out = node(base_state(chunks=[chunk(0, "a"), chunk(1, "b")]))
+    assert [c.id for c in out["relevant"]] == ["0"]  # fallback-парсер нашёл yes
+
+
+def test_grader_tolerates_bare_json_string():
+    llm = FakeLLM(['"yes"'])
+    node = make_grader(llm, SETTINGS)
+    out = node(base_state(chunks=[chunk(0, "a")]))
+    assert [c.id for c in out["relevant"]] == []
+
+
+def test_grader_accepts_boolean_json():
+    llm = FakeLLM(['{"relevant": true}', '{"relevant": false}'])
+    node = make_grader(llm, SETTINGS)
+    out = node(base_state(chunks=[chunk(0, "a"), chunk(1, "b")]))
+    assert [c.id for c in out["relevant"]] == ["0"]
+
+
+def test_grader_accepts_russian_da():
+    llm = FakeLLM(['{"relevant": "да"}'])
+    node = make_grader(llm, SETTINGS)
+    out = node(base_state(chunks=[chunk(0, "a")]))
+    assert [c.id for c in out["relevant"]] == ["0"]
+
+
+def test_grader_empty_chunks_skips_llm():
+    llm = FakeLLM([])
+    node = make_grader(llm, SETTINGS)
+    out = node(base_state(chunks=[]))
+    assert out["relevant"] == []
+    assert llm.prompts == []
+
+
+def test_grader_truncates_chunks_by_setting():
+    llm = FakeLLM(["yes"])
+    s = Settings(grade_chunk_chars=50)
+    node = make_grader(llm, s)
+    node(base_state(chunks=[chunk(0, "а" * 500)]))
+    prompt = llm.prompts[0]
+    assert "а" * 50 in prompt  # вошли первые 50 символов
+    assert "а" * 51 not in prompt  # длиннее настройки — нет
+
+
 def test_grader_batch_single_call():
     llm = FakeLLM(["1, 3"])
-    node = make_grader(llm, SETTINGS)
+    node = make_grader(llm, BATCH)
     out = node(
         base_state(chunks=[chunk(0, "про кэш"), chunk(1, "про логи"), chunk(2, "про TTL кэша")])
     )
@@ -92,7 +143,7 @@ def test_grader_batch_single_call():
 
 def test_grader_batch_parses_digits_in_text():
     llm = FakeLLM(["Релевантные фрагменты: 2 и 3."])
-    node = make_grader(llm, SETTINGS)
+    node = make_grader(llm, BATCH)
     out = node(base_state(chunks=[chunk(0, "a"), chunk(1, "b"), chunk(2, "c")]))
     assert [c.id for c in out["relevant"]] == ["1", "2"]
     assert len(llm.prompts) == 1
@@ -100,7 +151,7 @@ def test_grader_batch_parses_digits_in_text():
 
 def test_grader_batch_none_answer():
     llm = FakeLLM(["none"])
-    node = make_grader(llm, SETTINGS)
+    node = make_grader(llm, BATCH)
     out = node(base_state(chunks=[chunk(0, "a"), chunk(1, "b")]))
     assert out["relevant"] == []
     assert len(llm.prompts) == 1
@@ -108,99 +159,28 @@ def test_grader_batch_none_answer():
 
 def test_grader_batch_russian_none():
     llm = FakeLLM(["нет"])
-    node = make_grader(llm, SETTINGS)
+    node = make_grader(llm, BATCH)
     out = node(base_state(chunks=[chunk(0, "a")]))
     assert out["relevant"] == []
 
 
-def test_grader_empty_chunks_skips_llm():
-    llm = FakeLLM([])
-    node = make_grader(llm, SETTINGS)
-    out = node(base_state(chunks=[]))
-    assert out["relevant"] == []
-    assert llm.prompts == []
-
-
-def test_grader_ignores_out_of_range_numbers():
+def test_grader_batch_ignores_out_of_range_numbers():
     llm = FakeLLM(["9", '{"relevant": "yes"}'])
-    node = make_grader(llm, SETTINGS)
+    node = make_grader(llm, BATCH)
     out = node(base_state(chunks=[chunk(0, "a")]))
-    # «9» вне диапазона и без слов «нет» — пакет не распарсился, ушёл в фолбэк
+    # «9» вне диапазона и без слов «нет» — пакет не распарсился, ушёл в поштучный
     assert [c.id for c in out["relevant"]] == ["0"]
     assert len(llm.prompts) == 2
 
 
-def test_grader_contradictory_none_with_numbers_falls_back():
+def test_grader_batch_contradictory_none_with_numbers_falls_back():
     # «ни один из 6 не релевантен» — «нет» вместе с номером; трактовать наугад нельзя
     chunks = [chunk(i, f"текст {i}") for i in range(6)]
     llm = FakeLLM(["ни один из 6 фрагментов не релевантен"] + ['{"relevant": "no"}'] * 6)
-    node = make_grader(llm, SETTINGS)
+    node = make_grader(llm, BATCH)
     out = node(base_state(chunks=chunks))
     assert out["relevant"] == []
     assert len(llm.prompts) == 7  # пакетный ответ забракован + 6 поштучных
-
-
-def test_grader_negated_digit_does_not_select_chunk():
-    # само по себе «нет» без номеров — валидный пустой ответ, фолбэка нет
-    llm = FakeLLM(["нет релевантных фрагментов"])
-    node = make_grader(llm, SETTINGS)
-    out = node(base_state(chunks=[chunk(0, "a"), chunk(1, "b")]))
-    assert out["relevant"] == []
-    assert len(llm.prompts) == 1
-
-
-def test_grader_fallback_per_chunk_on_unparseable():
-    llm = FakeLLM([UNPARSEABLE, '{"relevant": "yes"}', '{"relevant": "no"}'])
-    node = make_grader(llm, SETTINGS)
-    out = node(base_state(chunks=[chunk(0, "про кэш"), chunk(1, "про логи")]))
-    assert [c.id for c in out["relevant"]] == ["0"]
-    assert len(llm.prompts) == 3  # 1 пакетный + 2 поштучных
-    assert llm.calls[1].num_predict == SETTINGS.num_predict_grade
-
-
-def test_grader_fallback_parses_yes_no():
-    llm = FakeLLM([UNPARSEABLE, '{"relevant": "yes"}', '{"relevant": "no"}'])
-    node = make_grader(llm, SETTINGS)
-    out = node(base_state(chunks=[chunk(0, "про кэш"), chunk(1, "про логи")]))
-    assert [c.id for c in out["relevant"]] == ["0"]
-
-
-def test_grader_fallback_tolerates_broken_json():
-    llm = FakeLLM([UNPARSEABLE, "relevant: yes точно", "no"])
-    node = make_grader(llm, SETTINGS)
-    out = node(base_state(chunks=[chunk(0, "a"), chunk(1, "b")]))
-    assert [c.id for c in out["relevant"]] == ["0"]  # fallback-парсер нашёл yes
-
-
-def test_grader_fallback_tolerates_bare_json_string():
-    llm = FakeLLM([UNPARSEABLE, '"yes"'])
-    node = make_grader(llm, SETTINGS)
-    out = node(base_state(chunks=[chunk(0, "a")]))
-    assert [c.id for c in out["relevant"]] == []
-
-
-def test_grader_fallback_accepts_boolean_json():
-    llm = FakeLLM([UNPARSEABLE, '{"relevant": true}', '{"relevant": false}'])
-    node = make_grader(llm, SETTINGS)
-    out = node(base_state(chunks=[chunk(0, "a"), chunk(1, "b")]))
-    assert [c.id for c in out["relevant"]] == ["0"]
-
-
-def test_grader_fallback_accepts_russian_da():
-    llm = FakeLLM([UNPARSEABLE, '{"relevant": "да"}'])
-    node = make_grader(llm, SETTINGS)
-    out = node(base_state(chunks=[chunk(0, "a")]))
-    assert [c.id for c in out["relevant"]] == ["0"]
-
-
-def test_grader_truncates_chunks_by_setting():
-    llm = FakeLLM(["1"])
-    s = Settings(grade_chunk_chars=50)
-    node = make_grader(llm, s)
-    node(base_state(chunks=[chunk(0, "а" * 500)]))
-    prompt = llm.prompts[0]
-    assert "а" * 50 in prompt  # вошли первые 50 символов
-    assert "а" * 51 not in prompt  # длиннее настройки — нет
 
 
 def test_generator_answer_and_sources():

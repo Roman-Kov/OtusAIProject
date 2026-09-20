@@ -42,6 +42,7 @@ def test_slow_graph_returns_in_progress_then_cached_result():
     runner = AskRunner(lambda q: graph, wait_seconds=0)
     first = runner.ask("медленный вопрос")
     assert first["status"] == "in_progress"
+    assert first["retry_after_seconds"] == 30
     assert first["sources"] == []
     time.sleep(0.7)
     second = runner.ask("медленный вопрос")

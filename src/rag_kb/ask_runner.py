@@ -40,6 +40,7 @@ class AskRunner:
             return job.result
         return {
             "status": "in_progress",
+            "retry_after_seconds": 30,
             "question": question,
             "answer": (
                 "Ответ ещё готовится (локальная модель на CPU может работать минуты). "

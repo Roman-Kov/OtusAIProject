@@ -42,7 +42,8 @@ class Settings(BaseSettings):
     grade_mode: str = "per_chunk"  # грейдинг: "per_chunk" (строже, надёжнее) | "batch" (быстрее)
 
     # ask_question
-    ask_wait_seconds: int = 180  # сколько ждать ответ графа до отдачи in_progress
+    # сколько ждать ответ графа до отдачи in_progress — меньше типовых клиентских таймаутов
+    ask_wait_seconds: int = 25
     ask_cache_size: int = 10  # сколько последних вопросов держать в кеше ответов
 
 
